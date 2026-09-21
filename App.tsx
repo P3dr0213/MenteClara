@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,7 +14,13 @@ import {
   StyleSheet,
   Linking,
 } from 'react-native';
-import { api, ApiError, Session, setUnauthorizedHandler } from './src/api';
+import {
+  api,
+  ApiError,
+  DiaryEntry,
+  Session,
+  setUnauthorizedHandler,
+} from './src/api';
 import { clearSession, getSession, saveSession } from './src/authStorage';
 import {
   validateLoginForm,
@@ -21,6 +28,7 @@ import {
   validateProfileUpdateForm,
 } from './src/auth';
 import { validateMoodEntry } from './src/mood';
+import { DIARY_PROMPTS, validateDiaryEntry } from './src/diary';
 import HistoryScreen from './src/HistoryScreen';
 
 type Screen =
@@ -32,12 +40,46 @@ type Screen =
   | 'humor'
   | 'historico'
   | 'respiracao'
+  | 'diario'
+  | 'diarioDetalhes'
   | 'emergencia'
   | 'chatIa';
 const moods = ['triste', 'ansioso', 'feliz', 'calmo', 'motivado'];
 const intensityLabels = ['Muito baixa', 'Baixa', 'Média', 'Alta', 'Muito alta'];
+const breathingPhases = [
+  {
+    key: 'inhale',
+    label: 'Inspire',
+    hint: 'por 4 segundos',
+    duration: 4,
+    scale: 1.28,
+  },
+  {
+    key: 'hold',
+    label: 'Segure',
+    hint: 'por 4 segundos',
+    duration: 4,
+    scale: 1.28,
+  },
+  {
+    key: 'exhale',
+    label: 'Expire',
+    hint: 'por 6 segundos',
+    duration: 6,
+    scale: 0.9,
+  },
+] as const;
+
 function message(error: unknown) {
   return error instanceof Error ? error.message : 'Tente novamente.';
+}
+
+function formatBreathingTimer(value: number) {
+  const minutes = Math.floor(value / 60)
+    .toString()
+    .padStart(2, '0');
+  const seconds = (value % 60).toString().padStart(2, '0');
+  return `${minutes}:${seconds}`;
 }
 
 function MainApp() {
@@ -56,7 +98,75 @@ function MainApp() {
   const [moodType, setMoodType] = useState('feliz');
   const [intensity, setIntensity] = useState(4);
   const [description, setDescription] = useState('');
+  const [diaryPrompt, setDiaryPrompt] = useState(DIARY_PROMPTS[0]);
+  const [useDiaryPrompt, setUseDiaryPrompt] = useState(true);
+  const [diaryText, setDiaryText] = useState('');
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
+  const [selectedDiaryEntry, setSelectedDiaryEntry] =
+    useState<DiaryEntry | null>(null);
+  const [diaryLoading, setDiaryLoading] = useState(false);
+  const [breathingPhaseIndex, setBreathingPhaseIndex] = useState(0);
+  const [breathingTimeLeft, setBreathingTimeLeft] = useState<number>(
+    breathingPhases[0].duration,
+  );
+  const [isBreathingPaused, setIsBreathingPaused] = useState(false);
   const currentToken = useRef<string | null>(null);
+  const breathingScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (screen !== 'respiracao') {
+      breathingScale.setValue(1);
+      setBreathingPhaseIndex(0);
+      setBreathingTimeLeft(breathingPhases[0].duration);
+      setIsBreathingPaused(false);
+      return;
+    }
+
+    if (isBreathingPaused) {
+      return;
+    }
+
+    const activePhase = breathingPhases[breathingPhaseIndex];
+    const animation = Animated.timing(breathingScale, {
+      toValue: activePhase.scale,
+      duration: activePhase.duration * 1000,
+      useNativeDriver: true,
+    });
+
+    animation.start();
+    setBreathingTimeLeft(activePhase.duration);
+
+    return () => {
+      animation.stop();
+    };
+  }, [breathingPhaseIndex, breathingScale, isBreathingPaused, screen]);
+
+  useEffect(() => {
+    if (screen !== 'respiracao' || isBreathingPaused) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setBreathingTimeLeft(currentLeft => {
+        if (currentLeft <= 1) {
+          setBreathingPhaseIndex(prev => (prev + 1) % breathingPhases.length);
+          return 0;
+        }
+        return currentLeft - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isBreathingPaused, screen]);
+
+  useEffect(() => {
+    if (screen !== 'respiracao') {
+      return;
+    }
+
+    const nextPhase = breathingPhases[breathingPhaseIndex];
+    setBreathingTimeLeft(nextPhase.duration);
+  }, [breathingPhaseIndex, screen]);
 
   const resetSession = useCallback(async () => {
     await clearSession();
@@ -143,6 +253,13 @@ function MainApp() {
       active = false;
     };
   }, [screen, session?.token, profileReload]);
+
+  useEffect(() => {
+    if (screen !== 'diario' || !session?.token) {
+      return;
+    }
+    loadDiaryHistory();
+  }, [screen, session?.token]);
 
   async function authenticate() {
     const validation =
@@ -240,6 +357,52 @@ function MainApp() {
       setIntensity(4);
       setScreen('historico');
       Alert.alert('Sucesso', 'Registro salvo.');
+    } catch (error) {
+      Alert.alert('Erro', message(error));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadDiaryHistory() {
+    if (!session?.token) {
+      return;
+    }
+    setDiaryLoading(true);
+    try {
+      const result = await api.diaryHistory(session.token);
+      setDiaryEntries(result.registros);
+    } catch (error) {
+      Alert.alert('Erro', message(error));
+    } finally {
+      setDiaryLoading(false);
+    }
+  }
+
+  async function saveDiaryEntry() {
+    const validation = validateDiaryEntry({
+      prompt: useDiaryPrompt ? diaryPrompt : '',
+      usePrompt: useDiaryPrompt,
+      resposta: diaryText,
+    });
+    if (!validation.valid) {
+      Alert.alert('Validação', String(Object.values(validation.errors)[0]));
+      return;
+    }
+    if (!session) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await api.diarySave(session.token, validation.normalized);
+      const nextEntry = result.registro;
+      setDiaryEntries(current => [nextEntry, ...current]);
+      setDiaryText('');
+      setDiaryPrompt(DIARY_PROMPTS[0]);
+      setUseDiaryPrompt(true);
+      setScreen('diario');
+      setSelectedDiaryEntry(nextEntry);
+      Alert.alert('Sucesso', 'Registro do diário salvo.');
     } catch (error) {
       Alert.alert('Erro', message(error));
     } finally {
@@ -364,6 +527,132 @@ function MainApp() {
   if (screen === 'historico') {
     return (
       <HistoryScreen token={session.token} onBack={() => setScreen('home')} />
+    );
+  }
+  if (screen === 'diarioDetalhes' && selectedDiaryEntry) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.profileContainer}>
+          <Text style={styles.title}>Registro do diário</Text>
+          <View style={styles.diaryCard}>
+            <Text style={styles.diaryPromptLabel}>Pergunta</Text>
+            <Text style={styles.diaryPrompt}>{selectedDiaryEntry.prompt}</Text>
+            <Text style={styles.diaryDate}>
+              {new Date(selectedDiaryEntry.criado_em).toLocaleString('pt-BR')}
+            </Text>
+            <Text style={styles.diaryResponse}>
+              {selectedDiaryEntry.resposta}
+            </Text>
+          </View>
+          {button('Voltar', () => setScreen('diario'), true)}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+  if (screen === 'diario') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.profileContainer}>
+          <Text style={styles.title}>Diário</Text>
+
+          <View style={styles.diaryToggleRow}>
+            <Text style={styles.label}>Pergunta guiada</Text>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ selected: useDiaryPrompt }}
+              style={[
+                styles.diaryToggle,
+                useDiaryPrompt && styles.diaryToggleActive,
+              ]}
+              onPress={() => setUseDiaryPrompt(current => !current)}
+            >
+              <View
+                style={[
+                  styles.diaryToggleThumb,
+                  useDiaryPrompt && styles.diaryToggleThumbActive,
+                ]}
+              />
+            </Pressable>
+          </View>
+
+          {useDiaryPrompt ? (
+            <>
+              <View style={styles.diaryPromptBox}>
+                <Text style={styles.diaryPromptLabel}>Sugestão</Text>
+                <Text style={styles.diaryPrompt}>{diaryPrompt}</Text>
+              </View>
+              <View style={styles.promptCarousel}>
+                {DIARY_PROMPTS.map(prompt => (
+                  <Pressable
+                    key={prompt}
+                    style={[
+                      styles.promptChip,
+                      diaryPrompt === prompt && styles.promptChipSelected,
+                    ]}
+                    onPress={() => setDiaryPrompt(prompt)}
+                  >
+                    <Text
+                      style={[
+                        styles.promptChipText,
+                        diaryPrompt === prompt && styles.promptChipTextSelected,
+                      ]}
+                    >
+                      {prompt}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : (
+            <Text style={styles.cardText}>
+              Pergunta guiada desativada. Você pode escrever livremente no seu
+              diário.
+            </Text>
+          )}
+
+          <Text style={styles.label}>Seu registro</Text>
+          <TextInput
+            accessibilityLabel="Texto do diário"
+            style={styles.textArea}
+            multiline
+            maxLength={5000}
+            value={diaryText}
+            onChangeText={setDiaryText}
+            placeholder="Escreva o que aconteceu, como você se sentiu e o que você precisa lembrar..."
+          />
+          {button(loading ? 'Salvando...' : 'Salvar no diário', saveDiaryEntry)}
+          <Text style={styles.sectionLabel}>Histórico</Text>
+          {diaryLoading ? (
+            <ActivityIndicator accessibilityLabel="Carregando diário" />
+          ) : diaryEntries.length === 0 ? (
+            <Text style={styles.cardText}>
+              Ainda não há registros neste diário.
+            </Text>
+          ) : (
+            diaryEntries.map(entry => (
+              <Pressable
+                key={entry.id}
+                style={styles.diaryHistoryCard}
+                onPress={() => {
+                  setSelectedDiaryEntry(entry);
+                  setScreen('diarioDetalhes');
+                }}
+              >
+                <Text style={styles.diaryHistoryTitle}>
+                  {entry.prompt || 'Registro sem pergunta'}
+                </Text>
+                <Text style={styles.diaryHistoryMeta}>
+                  {new Date(entry.criado_em).toLocaleString('pt-BR')}
+                </Text>
+                <Text style={styles.diaryHistoryPreview} numberOfLines={3}>
+                  {entry.resposta}
+                </Text>
+              </Pressable>
+            ))
+          )}
+          {button('Voltar', () => setScreen('home'), true)}
+        </ScrollView>
+      </SafeAreaView>
     );
   }
   if (screen === 'emergencia') {
@@ -601,17 +890,77 @@ function MainApp() {
         </>
       );
       break;
-    case 'respiracao':
+    case 'respiracao': {
+      const activePhase = breathingPhases[breathingPhaseIndex];
+      const handlePauseBreathing = () => {
+        setIsBreathingPaused(current => !current);
+      };
+      const handleFinishBreathing = () => {
+        breathingScale.setValue(1);
+        setBreathingPhaseIndex(0);
+        setBreathingTimeLeft(breathingPhases[0].duration);
+        setIsBreathingPaused(false);
+        setScreen('home');
+      };
       content = (
         <>
-          <Text style={styles.title}>Respiração</Text>
-          <Text style={styles.text}>
-            Inspire por 4 segundos e expire por 6.
-          </Text>
-          {button('Voltar', () => setScreen('home'))}
+          <View style={styles.breathingWrap}>
+            <Text style={styles.breathingTitle}>Pausa para respirar</Text>
+            <Text style={styles.breathingSubtitle}>
+              Um minuto para voltar ao presente.
+            </Text>
+
+            <View style={styles.breathingCircleOuter}>
+              <Animated.View
+                style={[
+                  styles.breathingCircleInner,
+                  { transform: [{ scale: breathingScale }] },
+                ]}
+              >
+                <Text style={styles.breathingText}>{activePhase.label}</Text>
+                <Text style={styles.breathingTextSecondary}>
+                  {activePhase.hint}
+                </Text>
+              </Animated.View>
+            </View>
+
+            <Text style={styles.breathingStep}>
+              Etapa {breathingPhaseIndex + 1} de {breathingPhases.length} ·{' '}
+              {formatBreathingTimer(breathingTimeLeft)}
+            </Text>
+
+            <View style={styles.breathingTimerRow}>
+              <Text style={styles.breathingTimerLabel}>Cronômetro</Text>
+              <Text style={styles.breathingTimerValue}>
+                {formatBreathingTimer(breathingTimeLeft)}
+              </Text>
+            </View>
+
+            <View style={styles.breathingActions}>
+              <Pressable
+                style={[
+                  styles.breathingAction,
+                  styles.breathingActionSecondary,
+                ]}
+                onPress={handlePauseBreathing}
+              >
+                <Text style={styles.breathingActionSecondaryText}>
+                  {isBreathingPaused ? 'Continuar' : 'Pausar'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.breathingAction, styles.breathingActionPrimary]}
+                onPress={handleFinishBreathing}
+              >
+                <Text style={styles.breathingActionPrimaryText}>Encerrar</Text>
+              </Pressable>
+            </View>
+          </View>
         </>
       );
       break;
+    }
     default:
       content = (
         <>
@@ -629,6 +978,7 @@ function MainApp() {
               ['humor', 'Humor', 'Registrar como você está se sentindo'],
               ['historico', 'Histórico', 'Visualizar registros e evolução'],
               ['respiracao', 'Respiração', 'Acessar exercícios'],
+              ['diario', 'Diário', 'Registrar pensamentos e reflexões'],
               ['perfil', 'Perfil', 'Seus dados e configurações'],
             ] as const
           ).map(([target, title, subtitle]) => (
@@ -1062,6 +1412,241 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2f3b3c',
     marginBottom: 12,
+  },
+  breathingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    width: '100%',
+  },
+  breathingTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1f2d2d',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  breathingSubtitle: {
+    fontSize: 14,
+    color: '#5d6668',
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  breathingCircleOuter: {
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: '#dff3f3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#67c7d2',
+    marginBottom: 20,
+  },
+  breathingCircleInner: {
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    backgroundColor: '#2f8d72',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#67c7d2',
+  },
+  breathingText: {
+    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  breathingTextSecondary: {
+    color: '#e6f7f4',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  diaryToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  diaryToggle: {
+    width: 52,
+    height: 30,
+    borderRadius: 999,
+    backgroundColor: '#dfe8eb',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  diaryToggleActive: {
+    backgroundColor: '#2f8d72',
+  },
+  diaryToggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#ffffff',
+    transform: [{ translateX: 0 }],
+  },
+  diaryToggleThumbActive: {
+    transform: [{ translateX: 22 }],
+  },
+  diaryPromptBox: {
+    backgroundColor: '#edf9f4',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#cfeee1',
+    padding: 16,
+    marginBottom: 18,
+  },
+  diaryPromptLabel: {
+    color: '#1f8a68',
+    fontWeight: '700',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  diaryPrompt: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1f2d2d',
+    lineHeight: 26,
+  },
+  diaryDate: {
+    fontSize: 12,
+    color: '#5d6668',
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  diaryResponse: {
+    color: '#2f3b3c',
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  promptCarousel: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  promptChip: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  promptChipSelected: {
+    backgroundColor: '#dff4ed',
+    borderColor: '#2f8d72',
+  },
+  promptChipText: {
+    color: '#2f3b3c',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  promptChipTextSelected: {
+    color: '#1f8a68',
+  },
+  diaryCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    padding: 18,
+    marginBottom: 18,
+  },
+  diaryHistoryCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    padding: 16,
+    marginBottom: 14,
+  },
+  diaryHistoryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1f2d2d',
+    marginBottom: 6,
+  },
+  diaryHistoryMeta: {
+    fontSize: 12,
+    color: '#5d6668',
+    marginBottom: 8,
+  },
+  diaryHistoryPreview: {
+    fontSize: 14,
+    color: '#3e4d4d',
+    lineHeight: 20,
+  },
+  breathingStep: {
+    fontSize: 16,
+    color: '#2f8d72',
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  breathingTimerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    backgroundColor: '#edf5f3',
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 18,
+  },
+  breathingTimerLabel: {
+    color: '#4c5d60',
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  breathingTimerValue: {
+    color: '#1f8a68',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  breathingActions: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  breathingAction: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  breathingActionSecondary: {
+    backgroundColor: '#edf5f3',
+    borderColor: '#dfe8eb',
+  },
+  breathingActionPrimary: {
+    backgroundColor: '#2f8d72',
+    borderColor: '#2f8d72',
+  },
+  breathingActionSecondaryText: {
+    color: '#2f3b3c',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  breathingActionPrimaryText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 15,
   },
   button: {
     backgroundColor: '#2f8d72',

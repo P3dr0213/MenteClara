@@ -8,6 +8,7 @@ const {
   validateProfileUpdateForm,
 } = require('../src/auth');
 const { validateMoodEntry } = require('../src/mood');
+const { validateDiaryEntry } = require('../src/diary');
 
 function createApp({ pool, jwtSecret }) {
   if (!jwtSecret || jwtSecret.length < 32) {
@@ -208,6 +209,53 @@ function createApp({ pool, jwtSecret }) {
       }
       const result = await pool.query(
         'SELECT id,tipo,intensidade,descricao,criado_em FROM registros_humor WHERE id=$1 AND usuario_id=$2',
+        [req.params.id, req.auth.userId],
+      );
+      if (!result.rowCount) {
+        return res.status(404).json({ message: 'Registro não encontrado.' });
+      }
+      res.json({ registro: result.rows[0] });
+    }),
+  );
+  app.post(
+    '/api/diary/register',
+    auth,
+    wrap(async (req, res) => {
+      const validation = validateDiaryEntry(req.body);
+      if (!validation.valid) {
+        return badInput(res, validation);
+      }
+      const { usePrompt, prompt, resposta } = validation.normalized;
+      const result = await pool.query(
+        'INSERT INTO registros_diario (usuario_id,prompt,resposta) VALUES ($1,$2,$3) RETURNING id,prompt,resposta,criado_em',
+        [req.auth.userId, usePrompt ? prompt : null, resposta],
+      );
+      res.status(201).json({
+        registro: result.rows[0],
+        message: 'Registro do diário salvo.',
+      });
+    }),
+  );
+  app.get(
+    '/api/diary/history',
+    auth,
+    wrap(async (req, res) => {
+      const result = await pool.query(
+        'SELECT id,prompt,resposta,criado_em FROM registros_diario WHERE usuario_id=$1 ORDER BY criado_em DESC,id DESC',
+        [req.auth.userId],
+      );
+      res.json({ registros: result.rows });
+    }),
+  );
+  app.get(
+    '/api/diary/:id',
+    auth,
+    wrap(async (req, res) => {
+      if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(req.params.id)) {
+        return res.status(400).json({ message: 'Registro inválido.' });
+      }
+      const result = await pool.query(
+        'SELECT id,prompt,resposta,criado_em FROM registros_diario WHERE id=$1 AND usuario_id=$2',
         [req.params.id, req.auth.userId],
       );
       if (!result.rowCount) {

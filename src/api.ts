@@ -7,6 +7,12 @@ export type Mood = {
   descricao: string | null;
   criado_em: string;
 };
+export type DiaryEntry = {
+  id: string;
+  prompt: string;
+  resposta: string;
+  criado_em: string;
+};
 export type Period = 'week' | 'month';
 
 // USB: adb reverse tcp:3001 tcp:3001. Funciona no aparelho e no emulador.
@@ -92,4 +98,15 @@ export const api = {
       'GET',
       token,
     ),
+  diarySave: (token: string, body: { prompt: string; resposta: string }) =>
+    request<{ registro: DiaryEntry; message: string }>(
+      '/api/diary/register',
+      'POST',
+      token,
+      body,
+    ),
+  diaryHistory: (token: string) =>
+    request<{ registros: DiaryEntry[] }>('/api/diary/history', 'GET', token),
+  diaryGet: (token: string, id: string) =>
+    request<{ registro: DiaryEntry }>('/api/diary/' + id, 'GET', token),
 };

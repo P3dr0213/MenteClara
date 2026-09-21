@@ -39,7 +39,7 @@ test('API real: autenticacao, perfil, isolamento, filtros e logout', async t => 
   const email = 'audit-' + randomUUID() + '@example.invalid';
   const email2 = 'audit-' + randomUUID() + '@example.invalid';
   const password = 'Senha@123Teste';
-  let a, b, mood;
+  let a, b, mood, diary;
   try {
     await t.test('cadastro e hash real sem expor senha', async () => {
       a = await call('/api/auth/register', {
@@ -222,6 +222,90 @@ test('API real: autenticacao, perfil, isolamento, filtros e logout', async t => 
           (await call('/api/mood/history', { token: a.data.token })).data
             .registros.length,
           1,
+        );
+      },
+    );
+    await t.test(
+      'diario exige autenticacao, salva e recupera registros',
+      async () => {
+        assert.equal(
+          (
+            await call('/api/diary/register', {
+              method: 'POST',
+              body: {
+                prompt: 'Como você está se sentindo hoje?',
+                resposta: 'Estou mais tranquilo e confiante.',
+              },
+            })
+          ).status,
+          401,
+        );
+        assert.equal(
+          (
+            await call('/api/diary/register', {
+              method: 'POST',
+              token: a.data.token,
+              body: {
+                prompt: 'Como você está se sentindo hoje?',
+                resposta: 'Estou mais tranquilo e confiante.',
+              },
+            })
+          ).status,
+          201,
+        );
+        assert.equal(
+          (
+            await call('/api/diary/register', {
+              method: 'POST',
+              token: a.data.token,
+              body: {
+                prompt: '',
+                usePrompt: false,
+                resposta: 'Hoje foi um dia leve, com foco e calma.',
+              },
+            })
+          ).status,
+          201,
+        );
+        diary = await call('/api/diary/register', {
+          method: 'POST',
+          token: a.data.token,
+          body: {
+            prompt: 'O que te deixou mais calmo?',
+            resposta: 'A rotina e o tempo para refletir.',
+          },
+        });
+        assert.equal(diary.status, 201);
+        assert.equal(
+          (await call('/api/diary/history', { token: a.data.token })).data
+            .registros.length,
+          3,
+        );
+        assert.equal(
+          (
+            await call('/api/diary/' + diary.data.registro.id, {
+              token: a.data.token,
+            })
+          ).status,
+          200,
+        );
+        assert.equal(
+          (
+            await call('/api/diary/' + diary.data.registro.id, {
+              token: b.data.token,
+            })
+          ).status,
+          404,
+        );
+        assert.equal(
+          (
+            await call('/api/diary/register', {
+              method: 'POST',
+              token: a.data.token,
+              body: { prompt: '', resposta: 'texto' },
+            })
+          ).status,
+          400,
         );
       },
     );
