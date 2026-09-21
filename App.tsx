@@ -41,7 +41,10 @@ type Screen =
   | 'historico'
   | 'respiracao'
   | 'diario'
+  | 'diarioNova'
   | 'diarioDetalhes'
+  | 'diarioEditar'
+  | 'diarioExcluir'
   | 'emergencia'
   | 'chatIa';
 const moods = ['triste', 'ansioso', 'feliz', 'calmo', 'motivado'];
@@ -85,6 +88,7 @@ function formatBreathingTimer(value: number) {
 function MainApp() {
   const [screen, setScreen] = useState<Screen>('humor');
   const [session, setSession] = useState<Session | null>(null);
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -100,11 +104,20 @@ function MainApp() {
   const [description, setDescription] = useState('');
   const [diaryPrompt, setDiaryPrompt] = useState(DIARY_PROMPTS[0]);
   const [useDiaryPrompt, setUseDiaryPrompt] = useState(true);
+  const [diaryTitle, setDiaryTitle] = useState('');
   const [diaryText, setDiaryText] = useState('');
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
   const [selectedDiaryEntry, setSelectedDiaryEntry] =
     useState<DiaryEntry | null>(null);
   const [diaryLoading, setDiaryLoading] = useState(false);
+  const [diaryMood, setDiaryMood] = useState('bem');
+  const diaryMoodOptions = [
+    { key: 'triste', emoji: '😞' },
+    { key: 'ansioso', emoji: '😟' },
+    { key: 'bem', emoji: '🙂' },
+    { key: 'feliz', emoji: '😄' },
+    { key: 'motivado', emoji: '🤩' },
+  ] as const;
   const [breathingPhaseIndex, setBreathingPhaseIndex] = useState(0);
   const [breathingTimeLeft, setBreathingTimeLeft] = useState<number>(
     breathingPhases[0].duration,
@@ -380,9 +393,10 @@ function MainApp() {
   }
 
   async function saveDiaryEntry() {
+    const title = diaryTitle.trim();
     const validation = validateDiaryEntry({
-      prompt: useDiaryPrompt ? diaryPrompt : '',
-      usePrompt: useDiaryPrompt,
+      prompt: title,
+      usePrompt: title.length > 0,
       resposta: diaryText,
     });
     if (!validation.valid) {
@@ -398,8 +412,10 @@ function MainApp() {
       const nextEntry = result.registro;
       setDiaryEntries(current => [nextEntry, ...current]);
       setDiaryText('');
+      setDiaryTitle('');
       setDiaryPrompt(DIARY_PROMPTS[0]);
       setUseDiaryPrompt(true);
+      setDiaryMood('bem');
       setScreen('diario');
       setSelectedDiaryEntry(nextEntry);
       Alert.alert('Sucesso', 'Registro do diário salvo.');
@@ -409,6 +425,42 @@ function MainApp() {
       setLoading(false);
     }
   }
+
+  function resetDiaryDraft() {
+    setDiaryTitle('');
+    setDiaryText('');
+    setDiaryMood('bem');
+    setDiaryPrompt(DIARY_PROMPTS[0]);
+    setUseDiaryPrompt(true);
+  }
+  const isDarkMode = themeMode === 'dark';
+  const theme = isDarkMode
+    ? {
+        background: '#101827',
+        surface: '#1f2937',
+        surfaceAlt: '#0f172a',
+        text: '#f3f4f6',
+        textMuted: '#cbd5e1',
+        border: '#334155',
+        accent: '#3fbf9f',
+        accentSoft: '#1f3b35',
+        danger: '#ef4444',
+        tabBackground: '#111827',
+        tabInactive: '#94a3b8',
+      }
+    : {
+        background: '#f3f5f7',
+        surface: '#ffffff',
+        surfaceAlt: '#edf9f4',
+        text: '#1f2d2d',
+        textMuted: '#5d6668',
+        border: '#dfe8eb',
+        accent: '#2d7a67',
+        accentSoft: '#eaf8f2',
+        danger: '#d93025',
+        tabBackground: '#ffffff',
+        tabInactive: '#586b6f',
+      };
   const button = (label: string, onPress: () => void, secondary = false) => (
     <Pressable
       accessibilityRole="button"
@@ -426,13 +478,17 @@ function MainApp() {
   );
   if (booting || bootError) {
     return (
-      <SafeAreaView style={styles.screenBox}>
+      <SafeAreaView
+        style={[styles.screenBox, { backgroundColor: theme.background }]}
+      >
         {booting ? (
           <ActivityIndicator accessibilityLabel="Carregando sessão" />
         ) : (
           <>
-            <Text style={styles.title}>Não foi possível conectar</Text>
-            <Text>{bootError}</Text>
+            <Text style={[styles.title, { color: theme.text }]}>
+              Não foi possível conectar
+            </Text>
+            <Text style={{ color: theme.textMuted }}>{bootError}</Text>
             {button('Tentar novamente', restoreSession)}
           </>
         )}
@@ -443,13 +499,24 @@ function MainApp() {
     return (
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.safeArea}
+        style={[styles.safeArea, { backgroundColor: theme.background }]}
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.loginContainer}
+          contentContainerStyle={[
+            styles.loginContainer,
+            { backgroundColor: theme.background },
+          ]}
         >
-          <View style={styles.loginCard}>
+          <View
+            style={[
+              styles.loginCard,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+            ]}
+          >
             <View style={styles.loginBrandWrap}>
               <Text style={styles.loginBrand}>MenteClara</Text>
             </View>
@@ -524,142 +591,612 @@ function MainApp() {
       </KeyboardAvoidingView>
     );
   }
+  const showTabs = ![
+    'editarPerfil',
+    'diarioNova',
+    'diarioEditar',
+    'diarioExcluir',
+    'diarioDetalhes',
+  ].includes(screen);
+
+  const quickMoodOptions = [
+    { key: 'triste', label: 'Muito mal', emoji: '😞' },
+    { key: 'ansioso', label: 'Mal', emoji: '😕' },
+    { key: 'calmo', label: 'Normal', emoji: '😐' },
+    { key: 'feliz', label: 'Bem', emoji: '🙂' },
+    { key: 'motivado', label: 'Muito bem', emoji: '😄' },
+  ] as const;
+
+  const moodMeta: Record<string, { label: string; emoji: string }> = {
+    triste: { label: 'Muito mal', emoji: '😞' },
+    ansioso: { label: 'Mal', emoji: '😕' },
+    calmo: { label: 'Normal', emoji: '😐' },
+    feliz: { label: 'Bem', emoji: '🙂' },
+    motivado: { label: 'Muito bem', emoji: '😄' },
+  };
+
+  const selectedMoodMeta = moodMeta[moodType] ?? moodMeta.feliz;
+
+  const recommendation = (() => {
+    if (moodType === 'triste' || moodType === 'ansioso') {
+      return {
+        title: 'Respiração guiada',
+        subtitle: '3 minutos para desacelerar',
+        screen: 'respiracao' as const,
+      };
+    }
+
+    if (moodType === 'calmo') {
+      return {
+        title: 'Diário',
+        subtitle: 'Registre um momento leve do seu dia',
+        screen: 'diario' as const,
+      };
+    }
+
+    return {
+      title: 'Diário',
+      subtitle: 'Registre algo positivo do seu dia',
+      screen: 'diario' as const,
+    };
+  })();
+
+  const progressRecords = diaryEntries.length;
+
+  const tabs = (
+    <View
+      style={[
+        styles.tabBar,
+        { backgroundColor: theme.tabBackground, borderTopColor: theme.border },
+      ]}
+    >
+      {(
+        [
+          { key: 'home', icon: '🏠' },
+          { key: 'humor', icon: '😊' },
+          { key: 'historico', icon: '📊' },
+          { key: 'respiracao', icon: '🌬️' },
+          { key: 'diario', icon: '📝' },
+          { key: 'perfil', icon: '👤' },
+        ] as const
+      ).map(({ key, icon }) => (
+        <Pressable
+          accessibilityRole="button"
+          key={key}
+          disabled={loading}
+          onPress={() => setScreen(key)}
+          style={screen === key ? styles.tabItemActive : styles.tabItem}
+        >
+          <Text style={screen === key ? styles.tabTextActive : styles.tabText}>
+            {icon}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
   if (screen === 'historico') {
     return (
       <HistoryScreen token={session.token} onBack={() => setScreen('home')} />
     );
   }
-  if (screen === 'diarioDetalhes' && selectedDiaryEntry) {
+  if (screen === 'diarioExcluir' && selectedDiaryEntry) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.profileContainer}>
-          <Text style={styles.title}>Registro do diário</Text>
-          <View style={styles.diaryCard}>
-            <Text style={styles.diaryPromptLabel}>Pergunta</Text>
-            <Text style={styles.diaryPrompt}>{selectedDiaryEntry.prompt}</Text>
-            <Text style={styles.diaryDate}>
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: theme.background }]}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.profileContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <View
+            style={[
+              styles.diaryDetailHeaderCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.diaryDetailTitle, { color: theme.text }]}>
+              {selectedDiaryEntry.prompt || 'Uma manhã mais leve'}
+            </Text>
+            <Text style={[styles.diaryDetailMeta, { color: theme.textMuted }]}>
               {new Date(selectedDiaryEntry.criado_em).toLocaleString('pt-BR')}
             </Text>
-            <Text style={styles.diaryResponse}>
+            <View style={styles.diaryDetailEmojiRow}>
+              <Text style={styles.diaryDetailEmoji}>
+                {diaryMoodOptions.find(item => item.key === diaryMood)?.emoji ||
+                  '🙂'}
+              </Text>
+            </View>
+            <Text style={[styles.diaryDetailText, { color: theme.text }]}>
               {selectedDiaryEntry.resposta}
             </Text>
           </View>
-          {button('Voltar', () => setScreen('diario'), true)}
+
+          <View
+            style={[
+              styles.deleteCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.deleteIconWrap}>
+              <Text style={styles.deleteIcon}>🗑️</Text>
+            </View>
+            <Text style={[styles.deleteTitle, { color: theme.text }]}>
+              Excluir esta entrada?
+            </Text>
+            <Text style={[styles.deleteText, { color: theme.textMuted }]}>
+              Esta ação não pode ser desfeita. Sua entrada será apagada
+              permanentemente.
+            </Text>
+            <Pressable
+              style={styles.deleteButton}
+              onPress={() => {
+                setDiaryEntries(current =>
+                  current.filter(item => item.id !== selectedDiaryEntry.id),
+                );
+                setSelectedDiaryEntry(null);
+                setScreen('diario');
+              }}
+            >
+              <Text style={styles.deleteButtonText}>Excluir entrada</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.cancelButton,
+                { backgroundColor: theme.accentSoft },
+              ]}
+              onPress={() => setScreen('diarioDetalhes')}
+            >
+              <Text style={[styles.cancelButtonText, { color: theme.text }]}>
+                Cancelar
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.backButton,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+              onPress={() => setScreen('diario')}
+            >
+              <Text style={[styles.backButtonText, { color: theme.text }]}>
+                Voltar
+              </Text>
+            </Pressable>
+          </View>
         </ScrollView>
       </SafeAreaView>
     );
   }
-  if (screen === 'diario') {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.profileContainer}>
-          <Text style={styles.title}>Diário</Text>
 
-          <View style={styles.diaryToggleRow}>
-            <Text style={styles.label}>Pergunta guiada</Text>
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityState={{ selected: useDiaryPrompt }}
-              style={[
-                styles.diaryToggle,
-                useDiaryPrompt && styles.diaryToggleActive,
-              ]}
-              onPress={() => setUseDiaryPrompt(current => !current)}
-            >
-              <View
+  if (screen === 'diarioEditar' && selectedDiaryEntry) {
+    return (
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: theme.background }]}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.profileContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <Text style={[styles.title, { color: theme.text }]}>
+            Editar entrada
+          </Text>
+          <Text style={[styles.editSubtitle, { color: theme.textMuted }]}>
+            Ajuste o que precisar, no seu tempo.
+          </Text>
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Título (opcional)
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            value={diaryTitle || selectedDiaryEntry.prompt || ''}
+            onChangeText={setDiaryTitle}
+            placeholder="Dê um nome a este momento"
+            placeholderTextColor={theme.textMuted}
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>Sua entrada</Text>
+          <TextInput
+            style={[
+              styles.textArea,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            multiline
+            value={selectedDiaryEntry.resposta}
+            onChangeText={value => {
+              if (selectedDiaryEntry) {
+                setSelectedDiaryEntry({
+                  ...selectedDiaryEntry,
+                  resposta: value,
+                });
+              }
+            }}
+            placeholder="Escreva aqui..."
+            placeholderTextColor={theme.textMuted}
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Como você está sentindo?
+          </Text>
+          <View style={styles.moodRow}>
+            {diaryMoodOptions.map(option => (
+              <Pressable
+                key={option.key}
                 style={[
-                  styles.diaryToggleThumb,
-                  useDiaryPrompt && styles.diaryToggleThumbActive,
+                  styles.moodOption,
+                  {
+                    backgroundColor: isDarkMode ? '#1e293b' : '#f3f3f3',
+                    borderColor:
+                      diaryMood === option.key
+                        ? '#3c9a73'
+                        : isDarkMode
+                        ? '#334155'
+                        : 'transparent',
+                  },
+                  diaryMood === option.key && styles.moodOptionSelected,
                 ]}
-              />
+                onPress={() => setDiaryMood(option.key)}
+              >
+                <Text style={styles.moodOptionText}>{option.emoji}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => {
+              if (!selectedDiaryEntry) {
+                return;
+              }
+              setDiaryEntries(current =>
+                current.map(item =>
+                  item.id === selectedDiaryEntry.id
+                    ? {
+                        ...item,
+                        prompt: diaryTitle || selectedDiaryEntry.prompt,
+                        resposta: selectedDiaryEntry.resposta,
+                      }
+                    : item,
+                ),
+              );
+              setScreen('diarioDetalhes');
+            }}
+          >
+            <Text style={styles.primaryButtonText}>Salvar alterações</Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.backButton,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+            onPress={() => setScreen('diarioDetalhes')}
+          >
+            <Text style={[styles.backButtonText, { color: theme.text }]}>
+              Voltar
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'diarioDetalhes' && selectedDiaryEntry) {
+    return (
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: theme.background }]}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.profileContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <Text style={[styles.title, { color: theme.text }]}>
+            {selectedDiaryEntry.prompt || 'Uma manhã mais leve'}
+          </Text>
+          <Text style={[styles.diaryDetailMeta, { color: theme.textMuted }]}>
+            {new Date(selectedDiaryEntry.criado_em).toLocaleString('pt-BR')}
+          </Text>
+
+          <View
+            style={[
+              styles.diaryDetailCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.diaryDetailEmojiRow}>
+              <Text style={styles.diaryDetailEmoji}>
+                {diaryMoodOptions.find(item => item.key === diaryMood)?.emoji ||
+                  '🙂'}
+              </Text>
+            </View>
+            <Text style={[styles.diaryDetailText, { color: theme.text }]}>
+              {selectedDiaryEntry.resposta}
+            </Text>
+          </View>
+
+          <View style={styles.diaryDetailActions}>
+            <Pressable
+              style={[
+                styles.secondaryActionButton,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+              onPress={() => {
+                setDiaryTitle(selectedDiaryEntry.prompt || '');
+                setScreen('diarioEditar');
+              }}
+            >
+              <Text
+                style={[
+                  styles.secondaryActionButtonText,
+                  { color: theme.text },
+                ]}
+              >
+                Editar
+              </Text>
+            </Pressable>
+            <Pressable
+              style={styles.deleteActionButton}
+              onPress={() => setScreen('diarioExcluir')}
+            >
+              <Text style={styles.deleteActionButtonText}>Excluir</Text>
             </Pressable>
           </View>
 
-          {useDiaryPrompt ? (
-            <>
-              <View style={styles.diaryPromptBox}>
-                <Text style={styles.diaryPromptLabel}>Sugestão</Text>
-                <Text style={styles.diaryPrompt}>{diaryPrompt}</Text>
-              </View>
-              <View style={styles.promptCarousel}>
-                {DIARY_PROMPTS.map(prompt => (
-                  <Pressable
-                    key={prompt}
-                    style={[
-                      styles.promptChip,
-                      diaryPrompt === prompt && styles.promptChipSelected,
-                    ]}
-                    onPress={() => setDiaryPrompt(prompt)}
-                  >
-                    <Text
-                      style={[
-                        styles.promptChipText,
-                        diaryPrompt === prompt && styles.promptChipTextSelected,
-                      ]}
-                    >
-                      {prompt}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          ) : (
-            <Text style={styles.cardText}>
-              Pergunta guiada desativada. Você pode escrever livremente no seu
-              diário.
+          <Pressable
+            style={[
+              styles.backButton,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+            onPress={() => setScreen('diario')}
+          >
+            <Text style={[styles.backButtonText, { color: theme.text }]}>
+              Voltar
             </Text>
-          )}
+          </Pressable>
 
-          <Text style={styles.label}>Seu registro</Text>
+          <Text style={[styles.privacyNote, { color: theme.textMuted }]}>
+            Esta entrada é privada e visível apenas para você.
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'diarioNova') {
+    return (
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: theme.background }]}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.profileContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <Text style={[styles.title, { color: theme.text }]}>
+            Nova entrada
+          </Text>
+          <Text style={[styles.subtitleText, { color: theme.textMuted }]}>
+            Escreva sem pressa. Este espaço é só seu.
+          </Text>
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Título (opcional)
+          </Text>
           <TextInput
-            accessibilityLabel="Texto do diário"
-            style={styles.textArea}
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            value={diaryTitle}
+            onChangeText={setDiaryTitle}
+            placeholder="Dê um nome a este momento"
+            placeholderTextColor={theme.textMuted}
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            O que você quer guardar de hoje?
+          </Text>
+          <TextInput
+            style={[
+              styles.textArea,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
             multiline
             maxLength={5000}
             value={diaryText}
             onChangeText={setDiaryText}
-            placeholder="Escreva o que aconteceu, como você se sentiu e o que você precisa lembrar..."
+            placeholder="Escreva aqui..."
+            placeholderTextColor={theme.textMuted}
           />
-          {button(loading ? 'Salvando...' : 'Salvar no diário', saveDiaryEntry)}
-          <Text style={styles.sectionLabel}>Histórico</Text>
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Como você está sentindo?
+          </Text>
+          <View style={styles.moodRow}>
+            {diaryMoodOptions.map(option => (
+              <Pressable
+                key={option.key}
+                style={[
+                  styles.moodOption,
+                  {
+                    backgroundColor: isDarkMode ? '#1e293b' : '#f3f3f3',
+                    borderColor:
+                      diaryMood === option.key
+                        ? '#3c9a73'
+                        : isDarkMode
+                        ? '#334155'
+                        : 'transparent',
+                  },
+                  diaryMood === option.key && styles.moodOptionSelected,
+                ]}
+                onPress={() => setDiaryMood(option.key)}
+              >
+                <Text style={styles.moodOptionText}>{option.emoji}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => {
+              saveDiaryEntry();
+            }}
+          >
+            <Text style={styles.primaryButtonText}>Salvar entrada</Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'diario') {
+    return (
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: theme.background }]}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.profileContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <Text style={[styles.title, { color: theme.text }]}>Meu diário</Text>
+          <Text style={[styles.subtitleText, { color: theme.textMuted }]}>
+            Um espaço só seu para guardar o que sente.
+          </Text>
+
+          <View
+            style={[
+              styles.diaryPrivateBox,
+              {
+                backgroundColor: isDarkMode ? '#132a24' : '#edf5f1',
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <Text style={styles.lockText}>🔒</Text>
+            <Text style={[styles.diaryPrivateText, { color: theme.text }]}>
+              Suas entradas são privadas.
+            </Text>
+          </View>
+
+          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+            Entradas recentes
+          </Text>
+
           {diaryLoading ? (
             <ActivityIndicator accessibilityLabel="Carregando diário" />
           ) : diaryEntries.length === 0 ? (
-            <Text style={styles.cardText}>
+            <Text style={[styles.cardText, { color: theme.textMuted }]}>
               Ainda não há registros neste diário.
             </Text>
           ) : (
             diaryEntries.map(entry => (
               <Pressable
                 key={entry.id}
-                style={styles.diaryHistoryCard}
+                style={[
+                  styles.diaryHistoryCard,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
                 onPress={() => {
                   setSelectedDiaryEntry(entry);
                   setScreen('diarioDetalhes');
                 }}
               >
-                <Text style={styles.diaryHistoryTitle}>
-                  {entry.prompt || 'Registro sem pergunta'}
+                <Text
+                  style={[
+                    styles.diaryHistoryDateLabel,
+                    { color: theme.textMuted },
+                  ]}
+                >
+                  {new Date(entry.criado_em)
+                    .toLocaleString('pt-BR', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                    })
+                    .replace(/(^\w)/, c => c.toUpperCase())}
                 </Text>
-                <Text style={styles.diaryHistoryMeta}>
-                  {new Date(entry.criado_em).toLocaleString('pt-BR')}
-                </Text>
-                <Text style={styles.diaryHistoryPreview} numberOfLines={3}>
-                  {entry.resposta}
-                </Text>
+                <View style={styles.diaryHistoryRow}>
+                  <Text style={styles.diaryHistoryEmoji}>
+                    {diaryMoodOptions[2].emoji}
+                  </Text>
+                  <View style={styles.diaryHistoryContent}>
+                    <Text
+                      style={[styles.diaryHistoryTitle, { color: theme.text }]}
+                    >
+                      {entry.prompt || 'Uma manhã mais leve'}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.diaryHistoryPreview,
+                        { color: theme.textMuted },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {entry.resposta}
+                    </Text>
+                  </View>
+                  <Text style={[styles.diaryArrow, { color: theme.textMuted }]}>
+                    ›
+                  </Text>
+                </View>
               </Pressable>
             ))
           )}
-          {button('Voltar', () => setScreen('home'), true)}
+
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => {
+              resetDiaryDraft();
+              setScreen('diarioNova');
+            }}
+          >
+            <Text style={styles.primaryButtonText}>+ Nova entrada</Text>
+          </Pressable>
         </ScrollView>
+        {tabs}
       </SafeAreaView>
     );
   }
   if (screen === 'emergencia') {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.profileContainer}>
-          <Text style={styles.title}>Emergência</Text>
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: theme.background }]}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.profileContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <Text style={[styles.title, { color: theme.text }]}>Emergência</Text>
 
           <View style={styles.emergencyCard}>
             <Text style={styles.emergencyBadge}>CVV</Text>
@@ -681,16 +1218,23 @@ function MainApp() {
               ),
             true,
           )}
-          {button('Voltar', () => setScreen('home'), true)}
         </ScrollView>
+        {tabs}
       </SafeAreaView>
     );
   }
   if (screen === 'chatIa') {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.profileContainer}>
-          <Text style={styles.title}>Chat com IA</Text>
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: theme.background }]}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.profileContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <Text style={[styles.title, { color: theme.text }]}>Chat com IA</Text>
 
           <View style={styles.aiBubble}>
             <Text style={styles.aiText}>
@@ -729,33 +1273,11 @@ function MainApp() {
               <Text style={styles.quickActionText}>Emergência</Text>
             </Pressable>
           </View>
-
-          {button('Voltar', () => setScreen('home'), true)}
         </ScrollView>
+        {tabs}
       </SafeAreaView>
     );
   }
-  const tabs = (
-    <View style={styles.tabBar}>
-      {(['home', 'historico', 'perfil'] as const).map(tab => (
-        <Pressable
-          accessibilityRole="button"
-          key={tab}
-          disabled={loading}
-          onPress={() => setScreen(tab)}
-          style={screen === tab ? styles.tabItemActive : styles.tabItem}
-        >
-          <Text style={screen === tab ? styles.tabTextActive : styles.tabText}>
-            {tab === 'home'
-              ? 'Home'
-              : tab === 'historico'
-              ? 'Histórico'
-              : 'Perfil'}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
-  );
   let content;
   switch (screen) {
     case 'perfil':
@@ -777,6 +1299,36 @@ function MainApp() {
           ) : null}
           <Text style={styles.text}>Nome: {session.user.nome}</Text>
           <Text style={styles.text}>Email: {session.user.email}</Text>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <Text style={[styles.label, { color: theme.text }]}>Tema</Text>
+            <Pressable
+              accessibilityRole="button"
+              style={[
+                styles.button,
+                {
+                  backgroundColor: theme.accent,
+                  marginTop: 0,
+                },
+              ]}
+              onPress={() =>
+                setThemeMode(current =>
+                  current === 'light' ? 'dark' : 'light',
+                )
+              }
+            >
+              <Text style={styles.buttonText}>
+                {isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+              </Text>
+            </Pressable>
+          </View>
           {button('Editar perfil', () => {
             setProfileForm({
               name: session.user.nome,
@@ -964,42 +1516,225 @@ function MainApp() {
     default:
       content = (
         <>
-          <View style={styles.heroCard}>
-            <Text style={styles.greeting}>Olá,</Text>
-            <Text style={styles.userName}>{session.user.nome}</Text>
-            <Text style={styles.heroText}>
-              Como você está se sentindo hoje? Reserve um momento para cuidar de
-              você.
-            </Text>
-          </View>
-          <Text style={styles.sectionLabel}>Seu espaço de cuidado</Text>
-          {(
-            [
-              ['humor', 'Humor', 'Registrar como você está se sentindo'],
-              ['historico', 'Histórico', 'Visualizar registros e evolução'],
-              ['respiracao', 'Respiração', 'Acessar exercícios'],
-              ['diario', 'Diário', 'Registrar pensamentos e reflexões'],
-              ['perfil', 'Perfil', 'Seus dados e configurações'],
-            ] as const
-          ).map(([target, title, subtitle]) => (
+          <View style={styles.homeHeader}>
+            <View>
+              <Text style={[styles.homeBrand, { color: theme.text }]}>
+                Mente Clara
+              </Text>
+            </View>
             <Pressable
-              key={target}
               accessibilityRole="button"
-              style={[styles.card, target === 'humor' && styles.cardAccent]}
-              onPress={() => setScreen(target)}
+              style={[
+                styles.homeSosButton,
+                {
+                  backgroundColor: isDarkMode ? '#3b1f1e' : '#fff1f0',
+                  borderColor: isDarkMode ? '#7f1d1d' : '#f5b5b0',
+                },
+              ]}
+              onPress={() => setScreen('emergencia')}
             >
-              <Text style={styles.cardTitle}>{title}</Text>
-              <Text style={styles.cardText}>{subtitle}</Text>
+              <Text
+                style={[
+                  styles.homeSosText,
+                  { color: isDarkMode ? '#fca5a5' : '#d93025' },
+                ]}
+              >
+                SOS
+              </Text>
             </Pressable>
-          ))}
+          </View>
+
+          <Text style={[styles.homeGreeting, { color: theme.text }]}>
+            Olá, {session.user.nome} 👋
+          </Text>
+          <Text style={[styles.homeSubGreeting, { color: theme.textMuted }]}>
+            Como você está se sentindo hoje?
+          </Text>
+
+          <View
+            style={[
+              styles.homeMoodCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+              Humor de hoje
+            </Text>
+            <View style={styles.moodQuickGrid}>
+              {quickMoodOptions.map(option => (
+                <Pressable
+                  key={option.key}
+                  accessibilityRole="button"
+                  onPress={async () => {
+                    setMoodType(option.key);
+                    const validation = validateMoodEntry({
+                      tipo: option.key,
+                      intensidade: 4,
+                      descricao: '',
+                    });
+
+                    if (!validation.valid) {
+                      Alert.alert(
+                        'Validação',
+                        String(Object.values(validation.errors)[0]),
+                      );
+                      return;
+                    }
+
+                    if (!session?.token) {
+                      return;
+                    }
+
+                    try {
+                      await api.saveMood(session.token, validation.normalized);
+                    } catch (error) {
+                      Alert.alert('Erro', message(error));
+                    }
+                  }}
+                  style={[
+                    styles.moodQuickButton,
+                    moodType === option.key && styles.moodQuickButtonSelected,
+                  ]}
+                >
+                  <Text style={styles.moodQuickEmoji}>{option.emoji}</Text>
+                  <Text
+                    style={[
+                      styles.moodQuickText,
+                      moodType === option.key && styles.moodQuickTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.homeMoodSummaryRow}>
+              <Text style={styles.homeMoodSummaryText}>
+                Hoje você está se sentindo {selectedMoodMeta.emoji}{' '}
+                {selectedMoodMeta.label}
+              </Text>
+              <Pressable onPress={() => setScreen('humor')}>
+                <Text style={styles.homeMoodLink}>Alterar</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.featureCardPrimary,
+              { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.featureCardLabel, { color: theme.accent }]}>
+              🌿 Momento para você
+            </Text>
+            <Text style={[styles.featureCardTitle, { color: theme.text }]}>
+              {recommendation.title}
+            </Text>
+            <Text
+              style={[styles.featureCardSubtitle, { color: theme.textMuted }]}
+            >
+              {recommendation.subtitle}
+            </Text>
+            <Pressable
+              style={styles.primaryButton}
+              onPress={() => setScreen(recommendation.screen)}
+            >
+              <Text style={styles.primaryButtonText}>Começar</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.sectionBlock}>
+            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+              Seu progresso
+            </Text>
+            <View style={styles.progressRow}>
+              <View
+                style={[
+                  styles.progressCard,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Text style={styles.progressEmoji}>😊</Text>
+                <Text
+                  style={[styles.progressLabel, { color: theme.textMuted }]}
+                >
+                  Humor
+                </Text>
+                <Text style={[styles.progressValue, { color: theme.text }]}>
+                  {selectedMoodMeta.label}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.progressCard,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Text style={styles.progressEmoji}>🔥</Text>
+                <Text
+                  style={[styles.progressLabel, { color: theme.textMuted }]}
+                >
+                  Registros
+                </Text>
+                <Text style={[styles.progressValue, { color: theme.text }]}>
+                  {progressRecords} dias
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.sectionBlock}>
+            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+              Para você
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              style={[
+                styles.diaryShortcutCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+              onPress={() => setScreen('diario')}
+            >
+              <View style={styles.diaryShortcutContent}>
+                <Text style={styles.diaryShortcutIcon}>📖</Text>
+                <View style={styles.diaryShortcutTextWrap}>
+                  <Text
+                    style={[styles.diaryShortcutTitle, { color: theme.text }]}
+                  >
+                    Diário
+                  </Text>
+                  <Text
+                    style={[
+                      styles.diaryShortcutSubtitle,
+                      { color: theme.textMuted },
+                    ]}
+                  >
+                    Escreva um pouco sobre seu dia
+                  </Text>
+                </View>
+              </View>
+              <Text
+                style={[styles.diaryShortcutAction, { color: theme.accent }]}
+              >
+                Abrir diário →
+              </Text>
+            </Pressable>
+          </View>
         </>
       );
   }
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: theme.background }]}
+    >
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.profileContainer}
+        contentContainerStyle={[
+          styles.profileContainer,
+          { backgroundColor: theme.background },
+        ]}
       >
         {screen !== 'login' && screen !== 'cadastro' ? (
           <View style={styles.emergencyHeader}>
@@ -1014,7 +1749,7 @@ function MainApp() {
         ) : null}
         {content}
       </ScrollView>
-      {tabs}
+      {showTabs ? tabs : null}
     </SafeAreaView>
   );
 }
@@ -1353,6 +2088,19 @@ const styles = StyleSheet.create({
     color: '#1f2d2d',
     marginBottom: 18,
   },
+  primaryButton: {
+    backgroundColor: '#2d7a67',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
   secondaryButton: {
     marginTop: 14,
     paddingVertical: 12,
@@ -1367,40 +2115,241 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#dfe8eb',
-    paddingTop: 8,
-    paddingBottom: 22,
-    paddingHorizontal: 12,
+    borderTopColor: '#e7eef1',
+    paddingTop: 6,
+    paddingBottom: 14,
+    paddingHorizontal: 6,
     justifyContent: 'space-around',
-    marginTop: -18,
-    minHeight: 82,
+    marginTop: -14,
+    minHeight: 60,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -2 },
   },
   tabItem: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 6,
     alignItems: 'center',
-    borderRadius: 12,
-    minHeight: 50,
+    borderRadius: 10,
+    minHeight: 38,
     justifyContent: 'center',
   },
   tabItemActive: {
     flex: 1,
     backgroundColor: '#eaf5f0',
-    paddingVertical: 10,
+    paddingVertical: 6,
     alignItems: 'center',
-    borderRadius: 12,
-    minHeight: 50,
+    borderRadius: 10,
+    minHeight: 38,
     justifyContent: 'center',
   },
   tabText: {
     color: '#586b6f',
     fontWeight: '600',
-    fontSize: 12,
+    fontSize: 18,
   },
   tabTextActive: {
     color: '#1f8a68',
     fontWeight: '700',
+    fontSize: 18,
+  },
+  homeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  homeBrand: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1f2d2d',
+  },
+  homeSosButton: {
+    backgroundColor: '#fff1f0',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#f5b5b0',
+  },
+  homeSosText: {
+    color: '#d93025',
     fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  homeGreeting: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1f2d2d',
+    marginBottom: 4,
+  },
+  homeSubGreeting: {
+    fontSize: 15,
+    color: '#5d6668',
+    marginBottom: 18,
+  },
+  homeMoodCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    marginBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  moodQuickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  moodQuickButton: {
+    width: '31%',
+    backgroundColor: '#f4f7f8',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e7edf0',
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+    marginBottom: 8,
+  },
+  moodQuickButtonSelected: {
+    backgroundColor: '#eaf8f2',
+    borderColor: '#a7dfc8',
+  },
+  moodQuickEmoji: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  moodQuickText: {
+    fontSize: 11,
+    color: '#4d5d5f',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  moodQuickTextSelected: {
+    color: '#1f8a68',
+  },
+  homeMoodSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 6,
+  },
+  homeMoodSummaryText: {
+    fontSize: 14,
+    color: '#2d3c3d',
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  homeMoodLink: {
+    color: '#1f8a68',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  featureCardPrimary: {
+    backgroundColor: '#edf9f4',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#bfe7d5',
+    marginBottom: 20,
+  },
+  featureCardLabel: {
+    fontSize: 12,
+    color: '#1f8a68',
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  featureCardTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1f2d2d',
+    marginBottom: 4,
+  },
+  featureCardSubtitle: {
+    fontSize: 14,
+    color: '#5d6668',
+    marginBottom: 14,
+  },
+  sectionBlock: {
+    marginBottom: 20,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  progressCard: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    minHeight: 120,
+    justifyContent: 'center',
+  },
+  progressEmoji: {
+    fontSize: 22,
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: '#6d7d7f',
+    fontWeight: '700',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  progressValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1f2d2d',
+  },
+  diaryShortcutCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  diaryShortcutContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  diaryShortcutIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  diaryShortcutTextWrap: {
+    flex: 1,
+  },
+  diaryShortcutTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1f2d2d',
+  },
+  diaryShortcutSubtitle: {
+    fontSize: 13,
+    color: '#5d6668',
+    marginTop: 4,
+  },
+  diaryShortcutAction: {
+    color: '#1f8a68',
+    fontWeight: '700',
+    fontSize: 14,
   },
   title: {
     fontSize: 28,
@@ -1492,6 +2441,222 @@ const styles = StyleSheet.create({
   },
   diaryToggleThumbActive: {
     transform: [{ translateX: 22 }],
+  },
+  diaryPrivateBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#edf5f1',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#dcece5',
+  },
+  lockText: {
+    fontSize: 16,
+    marginRight: 10,
+  },
+  diaryPrivateText: {
+    color: '#2f3b3c',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  diaryHistoryDateLabel: {
+    color: '#4c5d60',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  diaryHistoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  diaryHistoryEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  diaryHistoryContent: {
+    flex: 1,
+  },
+  diaryArrow: {
+    color: '#4f5f5d',
+    fontSize: 28,
+    marginLeft: 12,
+  },
+  diaryDetailCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    padding: 18,
+    marginBottom: 18,
+  },
+  diaryDetailHeaderCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    padding: 18,
+    marginBottom: 18,
+  },
+  diaryDetailMeta: {
+    fontSize: 12,
+    color: '#5d6668',
+    marginBottom: 10,
+  },
+  diaryDetailEmojiRow: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  diaryDetailEmoji: {
+    fontSize: 28,
+  },
+  diaryDetailTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1f2d2d',
+    marginBottom: 6,
+  },
+  diaryDetailText: {
+    color: '#2f3b3c',
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  diaryDetailActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 18,
+  },
+  secondaryActionButton: {
+    flex: 1,
+    backgroundColor: '#f1f3f2',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+  },
+  secondaryActionButtonText: {
+    color: '#2f3b3c',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  deleteActionButton: {
+    flex: 1,
+    backgroundColor: '#d85d4d',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  deleteActionButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  privacyNote: {
+    color: '#5d6668',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  deleteCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e3e7ea',
+    padding: 18,
+  },
+  deleteIconWrap: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  deleteIcon: {
+    fontSize: 34,
+  },
+  deleteTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1f2d2d',
+    marginBottom: 10,
+  },
+  deleteText: {
+    color: '#4d5d5f',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 18,
+  },
+  deleteButton: {
+    backgroundColor: '#d85d4d',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  deleteButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    backgroundColor: '#edf3f2',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#2f3b3c',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  editSubtitle: {
+    fontSize: 15,
+    color: '#4d5d5f',
+    marginBottom: 18,
+  },
+  moodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  moodOption: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#f3f3f3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  moodOptionSelected: {
+    backgroundColor: '#edf8f2',
+    borderColor: '#3c9a73',
+  },
+  moodOptionText: {
+    fontSize: 28,
+  },
+  subtitleText: {
+    color: '#4d5d5f',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  backButton: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dfe8eb',
+    marginTop: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1f2d2d',
   },
   diaryPromptBox: {
     backgroundColor: '#edf9f4',

@@ -302,6 +302,19 @@ test('API real: autenticacao, perfil, isolamento, filtros e logout', async t => 
             await call('/api/diary/register', {
               method: 'POST',
               token: a.data.token,
+              body: {
+                prompt: 'ok',
+                resposta: 'Hoje foi um dia leve e tranquilo.',
+              },
+            })
+          ).status,
+          201,
+        );
+        assert.equal(
+          (
+            await call('/api/diary/register', {
+              method: 'POST',
+              token: a.data.token,
               body: { prompt: '', resposta: 'texto' },
             })
           ).status,

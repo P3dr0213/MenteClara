@@ -23,11 +23,8 @@ function validateDiaryEntry(input = {}) {
   const normalized = normalizeDiaryEntry(input);
   const errors = {};
 
-  if (
-    normalized.usePrompt &&
-    (!normalized.prompt || normalized.prompt.length < 6)
-  ) {
-    errors.prompt = 'A pergunta do diário deve ter ao menos 6 caracteres.';
+  if (normalized.usePrompt && normalized.prompt.length > 255) {
+    errors.prompt = 'A pergunta do diário deve ter no máximo 255 caracteres.';
   }
 
   if (!normalized.resposta || normalized.resposta.length < 10) {
