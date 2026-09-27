@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 const key = 'com.menteclara.session';
+const themeKey = 'com.menteclara.theme';
 const options = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
@@ -33,4 +34,13 @@ export async function getSession() {
 
 export async function clearSession() {
   await SecureStore.deleteItemAsync(key);
+}
+
+export async function saveTheme(theme) {
+  await SecureStore.setItemAsync(themeKey, theme, options);
+}
+
+export async function getTheme() {
+  const theme = await SecureStore.getItemAsync(themeKey);
+  return theme === 'dark' ? 'dark' : 'light';
 }

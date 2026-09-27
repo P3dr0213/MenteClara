@@ -21,7 +21,13 @@ import {
   Session,
   setUnauthorizedHandler,
 } from './src/api';
-import { clearSession, getSession, saveSession } from './src/authStorage';
+import {
+  clearSession,
+  getSession,
+  getTheme,
+  saveSession,
+  saveTheme,
+} from './src/authStorage';
 import {
   validateLoginForm,
   validateRegisterForm,
@@ -123,6 +129,12 @@ function MainApp() {
   const [isBreathingPaused, setIsBreathingPaused] = useState(false);
   const currentToken = useRef<string | null>(null);
   const breathingScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    getTheme()
+      .then(setThemeMode)
+      .catch(() => setThemeMode('light'));
+  }, []);
 
   useEffect(() => {
     if (screen !== 'respiracao') {
@@ -467,11 +479,23 @@ function MainApp() {
       disabled={loading}
       style={[
         secondary ? styles.secondaryButton : styles.button,
+        secondary
+          ? {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              borderWidth: 1,
+            }
+          : { backgroundColor: theme.accent },
         loading && styles.buttonDisabled,
       ]}
       onPress={onPress}
     >
-      <Text style={secondary ? styles.secondaryButtonText : styles.buttonText}>
+      <Text
+        style={[
+          secondary ? styles.secondaryButtonText : styles.buttonText,
+          secondary && { color: theme.accent },
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -517,33 +541,58 @@ function MainApp() {
               },
             ]}
           >
-            <View style={styles.loginBrandWrap}>
-              <Text style={styles.loginBrand}>MenteClara</Text>
+            <View
+              style={[
+                styles.loginBrandWrap,
+                {
+                  backgroundColor: theme.accentSoft,
+                  borderColor: theme.accent,
+                },
+              ]}
+            >
+              <Text style={[styles.loginBrand, { color: theme.accent }]}>
+                MenteClara
+              </Text>
             </View>
-            <Text style={styles.loginTitle}>
+            <Text style={[styles.loginTitle, { color: theme.text }]}>
               {screen === 'cadastro' ? 'Criar conta' : 'Bem-vindo de volta'}
             </Text>
-            <Text style={styles.loginSubtitle}>
+            <Text style={[styles.loginSubtitle, { color: theme.textMuted }]}>
               Acompanhe seu bem-estar e cuide da sua mente todos os dias.
             </Text>
             {screen === 'cadastro' ? (
               <>
-                <Text style={styles.label}>Nome</Text>
+                <Text style={[styles.label, { color: theme.text }]}>Nome</Text>
                 <TextInput
                   accessibilityLabel="Nome"
-                  style={styles.input}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                      color: theme.text,
+                    },
+                  ]}
                   value={name}
                   onChangeText={setName}
                   maxLength={120}
                   editable={!loading}
                   placeholder="Seu nome"
+                  placeholderTextColor={theme.textMuted}
                 />
               </>
             ) : null}
-            <Text style={styles.label}>Email</Text>
+            <Text style={[styles.label, { color: theme.text }]}>Email</Text>
             <TextInput
               accessibilityLabel="Email"
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
               value={email}
               onChangeText={setEmail}
               maxLength={254}
@@ -551,19 +600,28 @@ function MainApp() {
               autoCapitalize="none"
               keyboardType="email-address"
               placeholder="seu@email.com"
+              placeholderTextColor={theme.textMuted}
             />
-            <Text style={styles.label}>Senha</Text>
+            <Text style={[styles.label, { color: theme.text }]}>Senha</Text>
             <TextInput
               accessibilityLabel="Senha"
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
               value={password}
               onChangeText={setPassword}
               editable={!loading}
               secureTextEntry
               placeholder="Sua senha"
+              placeholderTextColor={theme.textMuted}
             />
             {screen === 'cadastro' ? (
-              <Text style={styles.cardText}>
+              <Text style={[styles.cardText, { color: theme.textMuted }]}>
                 Use ao menos 8 caracteres, com maiúscula, minúscula, número e
                 símbolo.
               </Text>
@@ -666,14 +724,25 @@ function MainApp() {
           key={key}
           disabled={loading}
           onPress={() => setScreen(key)}
-          style={screen === key ? styles.tabItemActive : styles.tabItem}
+          style={[
+            screen === key ? styles.tabItemActive : styles.tabItem,
+            screen === key && { backgroundColor: theme.accentSoft },
+          ]}
         >
-          <Text style={screen === key ? styles.tabTextActive : styles.tabText}>
+          <Text
+            style={[
+              screen === key ? styles.tabTextActive : styles.tabText,
+              { color: screen === key ? theme.accent : theme.tabInactive },
+            ]}
+          >
             {icon}
           </Text>
           <Text
             numberOfLines={1}
-            style={screen === key ? styles.tabLabelActive : styles.tabLabel}
+            style={[
+              screen === key ? styles.tabLabelActive : styles.tabLabel,
+              { color: screen === key ? theme.accent : theme.tabInactive },
+            ]}
           >
             {label}
           </Text>
@@ -684,7 +753,11 @@ function MainApp() {
 
   if (screen === 'historico') {
     return (
-      <HistoryScreen token={session.token} onBack={() => setScreen('home')} />
+      <HistoryScreen
+        token={session.token}
+        onBack={() => setScreen('home')}
+        darkMode={isDarkMode}
+      />
     );
   }
   if (screen === 'diarioExcluir' && selectedDiaryEntry) {
@@ -1205,10 +1278,32 @@ function MainApp() {
         >
           <Text style={[styles.title, { color: theme.text }]}>Emergência</Text>
 
-          <View style={styles.emergencyCard}>
-            <Text style={styles.emergencyBadge}>CVV</Text>
-            <Text style={styles.emergencyPhone}>188</Text>
-            <Text style={styles.emergencyText}>
+          <View
+            style={[
+              styles.emergencyCard,
+              {
+                backgroundColor: isDarkMode ? '#3b1f1e' : '#fff1f0',
+                borderColor: isDarkMode ? '#7f1d1d' : '#f5b5b0',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.emergencyBadge,
+                { color: isDarkMode ? '#fca5a5' : '#b3261e' },
+              ]}
+            >
+              CVV
+            </Text>
+            <Text
+              style={[
+                styles.emergencyPhone,
+                { color: isDarkMode ? '#fecaca' : '#7f1d1d' },
+              ]}
+            >
+              188
+            </Text>
+            <Text style={[styles.emergencyText, { color: theme.textMuted }]}>
               Ligue imediatamente em caso de risco, crise ou se precisar de
               apoio emocional urgente.
             </Text>
@@ -1243,8 +1338,13 @@ function MainApp() {
         >
           <Text style={[styles.title, { color: theme.text }]}>Chat com IA</Text>
 
-          <View style={styles.aiBubble}>
-            <Text style={styles.aiText}>
+          <View
+            style={[
+              styles.aiBubble,
+              { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.aiText, { color: theme.text }]}>
               Olá! Posso te ajudar a respirar, organizar seus pensamentos e te
               orientar em momentos de tensão.
             </Text>
@@ -1252,7 +1352,10 @@ function MainApp() {
 
           <View style={styles.quickActions}>
             <Pressable
-              style={styles.quickAction}
+              style={[
+                styles.quickAction,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
               onPress={() =>
                 Alert.alert(
                   'IA',
@@ -1260,10 +1363,15 @@ function MainApp() {
                 )
               }
             >
-              <Text style={styles.quickActionText}>Respirar</Text>
+              <Text style={[styles.quickActionText, { color: theme.text }]}>
+                Respirar
+              </Text>
             </Pressable>
             <Pressable
-              style={styles.quickAction}
+              style={[
+                styles.quickAction,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
               onPress={() =>
                 Alert.alert(
                   'IA',
@@ -1271,13 +1379,20 @@ function MainApp() {
                 )
               }
             >
-              <Text style={styles.quickActionText}>Apoio</Text>
+              <Text style={[styles.quickActionText, { color: theme.text }]}>
+                Apoio
+              </Text>
             </Pressable>
             <Pressable
-              style={styles.quickAction}
+              style={[
+                styles.quickAction,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
               onPress={() => setScreen('emergencia')}
             >
-              <Text style={styles.quickActionText}>Emergência</Text>
+              <Text style={[styles.quickActionText, { color: theme.text }]}>
+                Emergência
+              </Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -1290,13 +1405,15 @@ function MainApp() {
     case 'perfil':
       content = (
         <>
-          <Text style={styles.title}>Perfil</Text>
+          <Text style={[styles.title, { color: theme.text }]}>Perfil</Text>
           {profileLoading ? (
             <ActivityIndicator accessibilityLabel="Atualizando perfil" />
           ) : null}
           {profileError ? (
             <>
-              <Text accessibilityRole="alert">{profileError}</Text>
+              <Text accessibilityRole="alert" style={{ color: theme.danger }}>
+                {profileError}
+              </Text>
               {button(
                 'Tentar novamente',
                 () => setProfileReload(value => value + 1),
@@ -1304,8 +1421,12 @@ function MainApp() {
               )}
             </>
           ) : null}
-          <Text style={styles.text}>Nome: {session.user.nome}</Text>
-          <Text style={styles.text}>Email: {session.user.email}</Text>
+          <Text style={[styles.text, { color: theme.text }]}>
+            Nome: {session.user.nome}
+          </Text>
+          <Text style={[styles.text, { color: theme.text }]}>
+            Email: {session.user.email}
+          </Text>
           <View
             style={[
               styles.card,
@@ -1325,11 +1446,13 @@ function MainApp() {
                   marginTop: 0,
                 },
               ]}
-              onPress={() =>
-                setThemeMode(current =>
-                  current === 'light' ? 'dark' : 'light',
-                )
-              }
+              onPress={() => {
+                const nextTheme = isDarkMode ? 'light' : 'dark';
+                setThemeMode(nextTheme);
+                saveTheme(nextTheme).catch(() =>
+                  Alert.alert('Erro', 'Não foi possível salvar o tema.'),
+                );
+              }}
             >
               <Text style={styles.buttonText}>
                 {isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
@@ -1350,11 +1473,21 @@ function MainApp() {
     case 'editarPerfil':
       content = (
         <>
-          <Text style={styles.title}>Editar perfil</Text>
-          <Text style={styles.label}>Nome</Text>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Editar perfil
+          </Text>
+          <Text style={[styles.label, { color: theme.text }]}>Nome</Text>
           <TextInput
             accessibilityLabel="Nome do perfil"
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            placeholderTextColor={theme.textMuted}
             value={profileForm.name}
             maxLength={120}
             editable={!loading}
@@ -1362,10 +1495,18 @@ function MainApp() {
               setProfileForm(current => ({ ...current, name: value }))
             }
           />
-          <Text style={styles.label}>Email</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Email</Text>
           <TextInput
             accessibilityLabel="Email do perfil"
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            placeholderTextColor={theme.textMuted}
             value={profileForm.email}
             maxLength={254}
             editable={!loading}
@@ -1383,8 +1524,12 @@ function MainApp() {
     case 'humor':
       content = (
         <>
-          <Text style={styles.title}>Registro de humor</Text>
-          <Text style={styles.label}>Como você está se sentindo?</Text>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Registro de humor
+          </Text>
+          <Text style={[styles.label, { color: theme.text }]}>
+            Como você está se sentindo?
+          </Text>
           <View style={styles.optionGrid}>
             {moods.map(mood => (
               <Pressable
@@ -1395,16 +1540,24 @@ function MainApp() {
                 onPress={() => setMoodType(mood)}
                 style={[
                   styles.optionButton,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  },
                   moodType === mood && styles.optionButtonSelected,
+                  moodType === mood && {
+                    backgroundColor: theme.accentSoft,
+                    borderColor: theme.accent,
+                  },
                 ]}
               >
-                <Text style={styles.optionText}>
+                <Text style={[styles.optionText, { color: theme.text }]}>
                   {mood.charAt(0).toUpperCase() + mood.slice(1)}
                 </Text>
               </Pressable>
             ))}
           </View>
-          <Text style={styles.label}>Intensidade</Text>
+          <Text style={[styles.label, { color: theme.text }]}>Intensidade</Text>
           <View style={styles.sliderWrapper}>
             {[1, 2, 3, 4, 5].map(level => (
               <Pressable
@@ -1416,12 +1569,21 @@ function MainApp() {
                 onPress={() => setIntensity(level)}
                 style={[
                   styles.sliderButton,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  },
                   intensity === level && styles.sliderButtonSelected,
+                  intensity === level && {
+                    backgroundColor: theme.accent,
+                    borderColor: theme.accent,
+                  },
                 ]}
               >
                 <Text
                   style={[
                     styles.sliderText,
+                    { color: theme.text },
                     intensity === level && styles.sliderTextSelected,
                   ]}
                 >
@@ -1430,19 +1592,29 @@ function MainApp() {
               </Pressable>
             ))}
           </View>
-          <Text style={styles.moodIntensityText}>
+          <Text style={[styles.moodIntensityText, { color: theme.textMuted }]}>
             {intensityLabels[intensity - 1]}
           </Text>
-          <Text style={styles.label}>Descrição opcional</Text>
+          <Text style={[styles.label, { color: theme.text }]}>
+            Descrição opcional
+          </Text>
           <TextInput
             accessibilityLabel="Descrição do humor"
-            style={styles.textArea}
+            style={[
+              styles.textArea,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
             multiline
             maxLength={280}
             editable={!loading}
             value={description}
             onChangeText={setDescription}
             placeholder="Conte o que aconteceu hoje..."
+            placeholderTextColor={theme.textMuted}
           />
           {button(loading ? 'Salvando...' : 'Salvar registro', saveMood)}
           {button('Cancelar', () => setScreen('home'), true)}
@@ -1464,16 +1636,32 @@ function MainApp() {
       content = (
         <>
           <View style={styles.breathingWrap}>
-            <Text style={styles.breathingTitle}>Pausa para respirar</Text>
-            <Text style={styles.breathingSubtitle}>
+            <Text style={[styles.breathingTitle, { color: theme.text }]}>
+              Pausa para respirar
+            </Text>
+            <Text
+              style={[styles.breathingSubtitle, { color: theme.textMuted }]}
+            >
               Um minuto para voltar ao presente.
             </Text>
 
-            <View style={styles.breathingCircleOuter}>
+            <View
+              style={[
+                styles.breathingCircleOuter,
+                {
+                  backgroundColor: theme.accentSoft,
+                  borderColor: theme.accent,
+                },
+              ]}
+            >
               <Animated.View
                 style={[
                   styles.breathingCircleInner,
-                  { transform: [{ scale: breathingScale }] },
+                  {
+                    backgroundColor: theme.accent,
+                    borderColor: theme.accent,
+                    transform: [{ scale: breathingScale }],
+                  },
                 ]}
               >
                 <Text style={styles.breathingText}>{activePhase.label}</Text>
@@ -1483,14 +1671,25 @@ function MainApp() {
               </Animated.View>
             </View>
 
-            <Text style={styles.breathingStep}>
+            <Text style={[styles.breathingStep, { color: theme.accent }]}>
               Etapa {breathingPhaseIndex + 1} de {breathingPhases.length} ·{' '}
               {formatBreathingTimer(breathingTimeLeft)}
             </Text>
 
-            <View style={styles.breathingTimerRow}>
-              <Text style={styles.breathingTimerLabel}>Cronômetro</Text>
-              <Text style={styles.breathingTimerValue}>
+            <View
+              style={[
+                styles.breathingTimerRow,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Text
+                style={[styles.breathingTimerLabel, { color: theme.textMuted }]}
+              >
+                Cronômetro
+              </Text>
+              <Text
+                style={[styles.breathingTimerValue, { color: theme.accent }]}
+              >
                 {formatBreathingTimer(breathingTimeLeft)}
               </Text>
             </View>
@@ -1500,16 +1699,26 @@ function MainApp() {
                 style={[
                   styles.breathingAction,
                   styles.breathingActionSecondary,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
                 ]}
                 onPress={handlePauseBreathing}
               >
-                <Text style={styles.breathingActionSecondaryText}>
+                <Text
+                  style={[
+                    styles.breathingActionSecondaryText,
+                    { color: theme.text },
+                  ]}
+                >
                   {isBreathingPaused ? 'Continuar' : 'Pausar'}
                 </Text>
               </Pressable>
 
               <Pressable
-                style={[styles.breathingAction, styles.breathingActionPrimary]}
+                style={[
+                  styles.breathingAction,
+                  styles.breathingActionPrimary,
+                  { backgroundColor: theme.accent, borderColor: theme.accent },
+                ]}
                 onPress={handleFinishBreathing}
               >
                 <Text style={styles.breathingActionPrimaryText}>Encerrar</Text>
@@ -1600,14 +1809,24 @@ function MainApp() {
                   }}
                   style={[
                     styles.moodQuickButton,
+                    {
+                      backgroundColor: theme.surfaceAlt,
+                      borderColor: theme.border,
+                    },
                     moodType === option.key && styles.moodQuickButtonSelected,
+                    moodType === option.key && {
+                      backgroundColor: theme.accentSoft,
+                      borderColor: theme.accent,
+                    },
                   ]}
                 >
                   <Text style={styles.moodQuickEmoji}>{option.emoji}</Text>
                   <Text
                     style={[
                       styles.moodQuickText,
+                      { color: theme.textMuted },
                       moodType === option.key && styles.moodQuickTextSelected,
+                      moodType === option.key && { color: theme.accent },
                     ]}
                   >
                     {option.label}
@@ -1617,12 +1836,14 @@ function MainApp() {
             </View>
 
             <View style={styles.homeMoodSummaryRow}>
-              <Text style={styles.homeMoodSummaryText}>
+              <Text style={[styles.homeMoodSummaryText, { color: theme.text }]}>
                 Hoje você está se sentindo {selectedMoodMeta.emoji}{' '}
                 {selectedMoodMeta.label}
               </Text>
               <Pressable onPress={() => setScreen('humor')}>
-                <Text style={styles.homeMoodLink}>Alterar</Text>
+                <Text style={[styles.homeMoodLink, { color: theme.accent }]}>
+                  Alterar
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -1645,7 +1866,7 @@ function MainApp() {
               {recommendation.subtitle}
             </Text>
             <Pressable
-              style={styles.primaryButton}
+              style={[styles.primaryButton, { backgroundColor: theme.accent }]}
               onPress={() => setScreen(recommendation.screen)}
             >
               <Text style={styles.primaryButtonText}>Começar</Text>

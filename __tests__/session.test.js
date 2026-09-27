@@ -1,5 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
-import { clearSession, getSession, saveSession } from '../src/authStorage';
+import {
+  clearSession,
+  getSession,
+  getTheme,
+  saveSession,
+  saveTheme,
+} from '../src/authStorage';
 
 beforeEach(async () => {
   await clearSession();
@@ -39,4 +45,12 @@ test('falha no armazenamento seguro impede aceitar a sessao', async () => {
     saveSession({ token: 'abc', user: { id: 'u1' } }),
   ).rejects.toThrow('Storage unavailable');
   expect(await getSession()).toBeNull();
+});
+
+test('tema escuro persiste sem substituir a sessao', async () => {
+  const session = { token: 'abc', user: { id: 'u1' } };
+  await saveSession(session);
+  await saveTheme('dark');
+  expect(await getTheme()).toBe('dark');
+  expect(await getSession()).toEqual(session);
 });

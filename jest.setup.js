@@ -1,14 +1,14 @@
 /* eslint-env jest */
 jest.mock('expo-secure-store', () => {
-  let stored = null;
+  const stored = new Map();
   return {
     WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'device-only',
     setItemAsync: jest.fn(async (key, value) => {
-      stored = value;
+      stored.set(key, value);
     }),
-    getItemAsync: jest.fn(async () => stored),
-    deleteItemAsync: jest.fn(async () => {
-      stored = null;
+    getItemAsync: jest.fn(async key => stored.get(key) ?? null),
+    deleteItemAsync: jest.fn(async key => {
+      stored.delete(key);
     }),
   };
 });
