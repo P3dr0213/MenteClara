@@ -82,3 +82,9 @@ yarn-error.log
 .env
 .env.*
 !.env.example
+
+# Expo
+.expo/
+dist/
+/android/
+/ios/

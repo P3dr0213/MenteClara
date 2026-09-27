@@ -28,7 +28,7 @@ import {
   validateProfileUpdateForm,
 } from './src/auth';
 import { validateMoodEntry } from './src/mood';
-import { DIARY_PROMPTS, validateDiaryEntry } from './src/diary';
+import { validateDiaryEntry } from './src/diary';
 import HistoryScreen from './src/HistoryScreen';
 
 type Screen =
@@ -102,8 +102,6 @@ function MainApp() {
   const [moodType, setMoodType] = useState('feliz');
   const [intensity, setIntensity] = useState(4);
   const [description, setDescription] = useState('');
-  const [diaryPrompt, setDiaryPrompt] = useState(DIARY_PROMPTS[0]);
-  const [useDiaryPrompt, setUseDiaryPrompt] = useState(true);
   const [diaryTitle, setDiaryTitle] = useState('');
   const [diaryText, setDiaryText] = useState('');
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
@@ -271,7 +269,28 @@ function MainApp() {
     if (screen !== 'diario' || !session?.token) {
       return;
     }
-    loadDiaryHistory();
+    let active = true;
+    setDiaryLoading(true);
+    api
+      .diaryHistory(session.token)
+      .then(result => {
+        if (active) {
+          setDiaryEntries(result.registros);
+        }
+      })
+      .catch(error => {
+        if (active) {
+          Alert.alert('Erro', message(error));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setDiaryLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [screen, session?.token]);
 
   async function authenticate() {
@@ -377,21 +396,6 @@ function MainApp() {
     }
   }
 
-  async function loadDiaryHistory() {
-    if (!session?.token) {
-      return;
-    }
-    setDiaryLoading(true);
-    try {
-      const result = await api.diaryHistory(session.token);
-      setDiaryEntries(result.registros);
-    } catch (error) {
-      Alert.alert('Erro', message(error));
-    } finally {
-      setDiaryLoading(false);
-    }
-  }
-
   async function saveDiaryEntry() {
     const title = diaryTitle.trim();
     const validation = validateDiaryEntry({
@@ -413,8 +417,6 @@ function MainApp() {
       setDiaryEntries(current => [nextEntry, ...current]);
       setDiaryText('');
       setDiaryTitle('');
-      setDiaryPrompt(DIARY_PROMPTS[0]);
-      setUseDiaryPrompt(true);
       setDiaryMood('bem');
       setScreen('diario');
       setSelectedDiaryEntry(nextEntry);
@@ -430,8 +432,6 @@ function MainApp() {
     setDiaryTitle('');
     setDiaryText('');
     setDiaryMood('bem');
-    setDiaryPrompt(DIARY_PROMPTS[0]);
-    setUseDiaryPrompt(true);
   }
   const isDarkMode = themeMode === 'dark';
   const theme = isDarkMode
@@ -652,16 +652,17 @@ function MainApp() {
     >
       {(
         [
-          { key: 'home', icon: '🏠' },
-          { key: 'humor', icon: '😊' },
-          { key: 'historico', icon: '📊' },
-          { key: 'respiracao', icon: '🌬️' },
-          { key: 'diario', icon: '📝' },
-          { key: 'perfil', icon: '👤' },
+          { key: 'home', icon: '🏠', label: 'Início' },
+          { key: 'humor', icon: '😊', label: 'Humor' },
+          { key: 'historico', icon: '📊', label: 'Histórico' },
+          { key: 'respiracao', icon: '🌬️', label: 'Respiração' },
+          { key: 'diario', icon: '📝', label: 'Diário' },
+          { key: 'perfil', icon: '👤', label: 'Perfil' },
         ] as const
-      ).map(({ key, icon }) => (
+      ).map(({ key, icon, label }) => (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={label}
           key={key}
           disabled={loading}
           onPress={() => setScreen(key)}

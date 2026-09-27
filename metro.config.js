@@ -1,16 +1,6 @@
-const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+const { getDefaultConfig } = require('expo/metro-config');
 
-/**
- * Metro configuration
- * https://reactnative.dev/docs/metro
- *
- * @type {import('@react-native/metro-config').MetroConfig}
- */
-const config = {
-  resolver: {
-    // Keep database files and backend credentials out of the mobile bundle.
-    blockList: /[/\\](?:\.local|\.local-logs|backend|database)(?:[/\\]|$)/,
-  },
-};
-
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+const config = getDefaultConfig(__dirname);
+// Keep database files, credentials and the old native projects out of Metro.
+config.resolver.blockList = /[/\\](?:\.local|\.local-logs|backend|database|legacy-native)(?:[/\\]|$)/;
+module.exports = config;

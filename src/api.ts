@@ -1,3 +1,6 @@
+import Constants from 'expo-constants';
+import { resolveApiUrl } from './apiUrl';
+
 export type User = { id: string; nome: string; email: string };
 export type Session = { token: string; user: User };
 export type Mood = {
@@ -15,8 +18,11 @@ export type DiaryEntry = {
 };
 export type Period = 'week' | 'month';
 
-// USB: adb reverse tcp:3001 tcp:3001. Funciona no aparelho e no emulador.
-export const API_URL = 'http://127.0.0.1:3001';
+export const API_URL = resolveApiUrl(
+  process.env.EXPO_PUBLIC_API_URL,
+  Constants.expoConfig?.hostUri,
+  __DEV__,
+);
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
     super(message);

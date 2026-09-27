@@ -13,7 +13,12 @@ async function mount() {
   });
 }
 async function press(label: string) {
-  let target = tree.root.findAll(node => node.props.children === label)[0];
+  let target =
+    tree.root.findAll(
+      node =>
+        node.props.accessibilityLabel === label &&
+        typeof node.props.onPress === 'function',
+    )[0] ?? tree.root.findAll(node => node.props.children === label)[0];
   while (target && typeof target.props.onPress !== 'function') {
     target = target.parent!;
   }
@@ -94,18 +99,16 @@ test('restaura sessao, atualiza perfil e consulta historico filtrado', async () 
 
 test('registra humor com sessao real e abre historico', async () => {
   await saveSession({ token: 'persistido', user });
-  const save = jest
-    .spyOn(api, 'saveMood')
-    .mockResolvedValue({
-      registro: {
-        id: 'm1',
-        tipo: 'feliz',
-        intensidade: 4,
-        descricao: 'Dia bom',
-        criado_em: '2026-09-20T12:00:00Z',
-      },
-      message: 'ok',
-    });
+  const save = jest.spyOn(api, 'saveMood').mockResolvedValue({
+    registro: {
+      id: 'm1',
+      tipo: 'feliz',
+      intensidade: 4,
+      descricao: 'Dia bom',
+      criado_em: '2026-09-20T12:00:00Z',
+    },
+    message: 'ok',
+  });
   await mount();
   await press('Humor');
   await act(async () => {

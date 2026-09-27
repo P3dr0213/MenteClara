@@ -1,28 +1,27 @@
-import * as Keychain from 'react-native-keychain';
+import * as SecureStore from 'expo-secure-store';
 
-const options = { service: 'com.menteclara.session' };
+const key = 'com.menteclara.session';
+const options = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
 export async function saveSession(session) {
-  const saved = await Keychain.setGenericPassword(
-    'session',
-    JSON.stringify(session),
-    {
-      ...options,
-      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-    },
-  );
-  if (!saved) {
-    throw new Error('Não foi possível salvar a sessão no aparelho.');
-  }
+  await SecureStore.setItemAsync(key, JSON.stringify(session), options);
   return session;
 }
+
 export async function getSession() {
-  const stored = await Keychain.getGenericPassword(options);
+  const stored = await SecureStore.getItemAsync(key);
   if (!stored) {
     return null;
   }
   try {
-    const session = JSON.parse(stored.password);
-    if (typeof session.token !== 'string' || !session.user?.id) {
+    const session = JSON.parse(stored);
+    if (
+      typeof session?.token !== 'string' ||
+      !session.token ||
+      !session.user?.id
+    ) {
       throw new Error('Sessão inválida');
     }
     return session;
@@ -31,6 +30,7 @@ export async function getSession() {
     return null;
   }
 }
+
 export async function clearSession() {
-  await Keychain.resetGenericPassword(options);
+  await SecureStore.deleteItemAsync(key);
 }

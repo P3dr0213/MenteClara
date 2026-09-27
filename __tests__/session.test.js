@@ -1,27 +1,42 @@
-import * as Keychain from 'react-native-keychain';
+import * as SecureStore from 'expo-secure-store';
 import { clearSession, getSession, saveSession } from '../src/authStorage';
 
 beforeEach(async () => {
   await clearSession();
   jest.clearAllMocks();
 });
-test('sessao persiste pelo armazenamento nativo e logout a remove', async () => {
+
+test('sessao persiste pelo armazenamento seguro e logout a remove', async () => {
   const session = {
     token: 'token-teste',
     user: { id: 'u1', nome: 'Teste', email: 'teste@example.invalid' },
   };
   await saveSession(session);
-  expect(Keychain.setGenericPassword).toHaveBeenCalledWith(
-    'session',
+  expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+    'com.menteclara.session',
     JSON.stringify(session),
-    expect.objectContaining({ service: 'com.menteclara.session' }),
+    { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY },
   );
   expect(await getSession()).toEqual(session);
   await clearSession();
   expect(await getSession()).toBeNull();
 });
-test('sessao corrompida e descartada', async () => {
-  Keychain.getGenericPassword.mockResolvedValueOnce({ password: '{invalido' });
+
+test.each(['{invalido', 'null', '{"token":"","user":{"id":"u1"}}'])(
+  'sessao corrompida e descartada: %s',
+  async value => {
+    SecureStore.getItemAsync.mockResolvedValueOnce(value);
+    expect(await getSession()).toBeNull();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+  },
+);
+
+test('falha no armazenamento seguro impede aceitar a sessao', async () => {
+  SecureStore.setItemAsync.mockRejectedValueOnce(
+    new Error('Storage unavailable'),
+  );
+  await expect(
+    saveSession({ token: 'abc', user: { id: 'u1' } }),
+  ).rejects.toThrow('Storage unavailable');
   expect(await getSession()).toBeNull();
-  expect(Keychain.resetGenericPassword).toHaveBeenCalled();
 });

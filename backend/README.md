@@ -1,11 +1,9 @@
 # API Mente Clara
 
 Na raiz do projeto, execute npm install e npm run db:setup. O setup aplica migrations novas sem repetir as anteriores.
-Execute npm run api:start em um terminal. Use npm start em outro terminal para o Metro.
+Para Expo Go no Wi-Fi, execute `npm run api:lan` e, em outro terminal, `npm start`. O celular e o computador devem estar na mesma rede. O app descobre o IP do computador pelo Metro.
 
-Com o Redmi desbloqueado e conectado por USB, execute npm run android:usb. O comando encaminha as portas 3001 (API) e 8081 (Metro).
-A configuracao de desenvolvimento em src/api.ts usa http://127.0.0.1:3001. O telefone alcanca o computador pelo adb reverse; nao use o endereco de emulador 10.0.2.2 no Redmi.
-A API escuta apenas em localhost por padrao.
+Para USB, configure `EXPO_PUBLIC_API_URL=http://127.0.0.1:3001` no `.env` da raiz, execute `npm run api:start` e `npm run android:usb`. A API escuta somente em localhost com api:start; api:lan libera acesso pela rede local.
 
 ## Fluxos
 
@@ -21,7 +19,7 @@ A API escuta apenas em localhost por padrao.
 
 Rotas privadas exigem Authorization: Bearer TOKEN.
 JWT usa segredo aleatorio local, assinatura HS256, issuer/audience e validade de 7 dias. As sessoes sao verificadas no banco e revogadas no logout.
-O aplicativo armazena a sessao com react-native-keychain (armazenamento seguro nativo) e consulta a API ao reabrir. Falha de rede permite repetir; sessao expirada retorna ao login.
+O aplicativo armazena a sessao com expo-secure-store (armazenamento seguro nativo) e consulta a API ao reabrir. Falha de rede permite repetir; sessao expirada retorna ao login.
 Sair da conta requer conexao com a API para confirmar a revogacao. Nao existe renovacao automatica: apos 7 dias e necessario entrar novamente.
 Senhas usam bcrypt (custo 12), com limite de 72 bytes para evitar truncamento.
 O grafico mostra a intensidade media diaria na data local do celular, nao uma pontuacao de saude mental.
@@ -41,7 +39,6 @@ Dados existentes de usuarios sao preservados.
 - npm run lint
 - npm run android:usb
 
-A compilacao Android deve ser repetida ao adicionar o modulo nativo de armazenamento seguro. Fast Refresh sozinho nao instala esse modulo.
-iOS precisa de instalacao dos pods e compilacao no macOS.
+O SecureStore ja esta disponivel no Expo Go. Para gerar aplicativos nativos independentes, use o fluxo de prebuild/build do Expo.
 
 Esta configuracao e para desenvolvimento local. Para publicar a API, configure HTTPS e os segredos do ambiente de hospedagem.

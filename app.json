@@ -1,4 +1,24 @@
 {
-  "name": "MenteClara",
-  "displayName": "Mente Clara"
+  "expo": {
+    "name": "Mente Clara",
+    "slug": "mente-clara",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "menteclara",
+    "platforms": [
+      "android",
+      "ios"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.menteclara"
+    },
+    "android": {
+      "package": "com.menteclara"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
 }

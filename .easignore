@@ -1,0 +1,14 @@
+.git/
+node_modules/
+.local/
+.local-logs/
+legacy-native/
+backend/
+database/
+__tests__/
+.env
+.env.*
+!.env.example
+coverage/
+dist/
+.expo/

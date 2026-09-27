@@ -1,2 +1,6 @@
 .local/
 backend/
+
+legacy-native/
+dist/
+.expo/

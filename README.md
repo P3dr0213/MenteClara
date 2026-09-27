@@ -1,97 +1,222 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Mente Clara
 
-# Getting Started
+Aplicativo móvel de acompanhamento de bem-estar desenvolvido com React Native, TypeScript e Expo SDK 57. O projeto inclui autenticação, perfil, registro e histórico de humor, diário, exercício guiado de respiração, tema claro/escuro e recursos de ajuda.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+> O Mente Clara é uma ferramenta de apoio ao bem-estar. Ele não substitui atendimento médico, psicológico ou serviços de emergência.
 
-## Step 1: Start Metro
+## Tecnologias
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+- Expo SDK 57 e React Native 0.86;
+- TypeScript;
+- Node.js e Express;
+- PostgreSQL;
+- `expo-secure-store` para guardar a sessão no aparelho;
+- Jest para testes automatizados.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Pré-requisitos
 
-```sh
-# Using npm
+Instale [Node.js](https://nodejs.org/) 22.13 ou superior, Git e o [Expo Go](https://expo.dev/go) compatível com o SDK 57 no celular. O fluxo local do banco usa PowerShell no Windows.
+
+Para executar pelo Wi-Fi, o celular e o computador precisam estar na mesma rede. Autorize o Node.js no Firewall do Windows para redes privadas quando o sistema solicitar.
+
+## Instalação
+
+Clone o repositório e entre na pasta:
+
+```powershell
+git clone URL_DO_REPOSITORIO
+cd MenteClara
+```
+
+Instale as dependências:
+
+```powershell
+npm install
+```
+
+Na primeira execução, prepare o PostgreSQL e aplique as migrations:
+
+```powershell
+npm run db:setup
+```
+
+Esse comando cria o banco local e gera `backend/.env`. Os arquivos `.env`, `.local/` e `.local-logs/` são locais e não devem ser enviados ao Git.
+
+## Executar no Expo Go pelo Wi-Fi
+
+Use três terminais abertos na pasta do projeto.
+
+No primeiro, inicie o banco:
+
+```powershell
+npm run db:start
+```
+
+No segundo, inicie a API para a rede local:
+
+```powershell
+npm run api:lan
+```
+
+No terceiro, inicie o Expo:
+
+```powershell
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
+Depois que o QR code aparecer:
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+1. Abra o Expo Go no celular.
+2. Leia o QR code mostrado no terminal.
+3. Aguarde a primeira compilação do bundle.
+4. Se aparecer o menu azul de desenvolvimento, toque em **Continue** e feche-o pelo **X**.
 
-### Android
+Mantenha os três terminais abertos enquanto usar o aplicativo.
 
-```sh
-# Using npm
-npm run android
+## Endereço da API
 
-# OR using Yarn
-yarn android
+Pelo Wi-Fi, o aplicativo tenta localizar automaticamente o computador que executa o Metro. Se houver VPNs ou adaptadores virtuais e o Expo escolher o IP errado, copie o arquivo de exemplo:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-### iOS
+Edite `.env` e informe o IPv4 do computador:
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+```dotenv
+EXPO_PUBLIC_API_URL=http://192.168.1.10:3001
 ```
 
-Then, and every time you update your native dependencies, run:
+Descubra o endereço com `ipconfig` e use o IPv4 do adaptador conectado à mesma rede do celular. Reinicie o Expo depois da alteração. Variáveis `EXPO_PUBLIC_*` são públicas; não coloque senhas ou tokens nelas.
 
-```sh
-bundle exec pod install
+## Executar no Android por USB
+
+Ative a depuração USB, conecte o aparelho e confirme a conexão:
+
+```powershell
+adb devices
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+No `.env`, use:
 
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+```dotenv
+EXPO_PUBLIC_API_URL=http://127.0.0.1:3001
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Inicie o banco e a API local:
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+```powershell
+npm run db:start
+npm run api:start
+```
 
-## Step 3: Modify your app
+Em outro terminal:
 
-Now that you have successfully run the app, let's make changes!
+```powershell
+npm run android:usb
+```
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+## Comandos disponíveis
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+| Comando | Finalidade |
+| --- | --- |
+| `npm start` | Inicia o Expo e exibe o QR code. |
+| `npm run android` | Abre o projeto no Android conectado ou emulador. |
+| `npm run ios` | Abre o projeto no simulador iOS, no macOS. |
+| `npm run api:lan` | Inicia a API acessível pela rede local. |
+| `npm run api:start` | Inicia a API somente no computador. |
+| `npm run db:start` | Inicia o PostgreSQL local. |
+| `npm run db:stop` | Encerra o PostgreSQL corretamente. |
+| `npm run db:status` | Mostra o estado do PostgreSQL. |
+| `npm run db:setup` | Prepara o banco e aplica migrations. |
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+Ao terminar, execute `npm run db:stop`. Isso evita uma recuperação demorada do banco na próxima inicialização.
 
-## Congratulations! :tada:
+## Testes e verificações
 
-You've successfully run and modified your React Native App. :partying_face:
+Antes de criar um commit, execute:
 
-### Now what?
+```powershell
+npm run typecheck
+npm test -- --runInBand
+npm run lint
+npx expo install --check
+npx expo-doctor
+```
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+## Solução de problemas
 
-# Troubleshooting
+### O QR code abre, mas o bundle não é baixado
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+- Aguarde o terminal informar que o bundle Android foi concluído e toque em recarregar no Expo Go.
+- Confirme que o computador e o celular estão na mesma rede.
+- Permita conexões do Node.js no Firewall do Windows para redes privadas.
+- Desative VPNs que façam o Expo anunciar outro IP ou configure a API manualmente no `.env`.
 
-# Learn More
+### O aplicativo não conecta à API
 
-To learn more about React Native, take a look at the following resources:
+Confira o banco e o endpoint de saúde:
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+```powershell
+npm run db:status
+Invoke-WebRequest http://127.0.0.1:3001/health
+```
+
+A API deve responder `{"ok":true}`.
+
+### O banco demora para iniciar
+
+Isso pode ocorrer quando o PostgreSQL não foi encerrado corretamente. Aguarde a recuperação e use `npm run db:stop` antes de desligar o computador nas próximas vezes.
+
+### O Expo Go mostra uma tela azul
+
+A tela azul com **Continue** é o menu inicial de desenvolvimento do Expo Go. Toque em **Continue** e feche o menu pelo **X**. A mensagem `Failed to download remote update` indica que o Metro ainda está compilando ou não está acessível pela rede.
+
+## Estrutura principal
+
+```text
+MenteClara/
+├── App.tsx                 # Interface e navegação principal
+├── src/                    # API, armazenamento e regras do aplicativo
+├── backend/                # API Express
+├── database/               # Migrations e documentação do banco
+├── docs/                   # Planejamento e documentação complementar
+├── __tests__/              # Testes automatizados
+├── legacy-native/          # Projetos anteriores à migração
+└── app.json                # Configuração do Expo
+```
+
+Os projetos nativos anteriores estão em `legacy-native/` apenas como referência. Para gerar novos projetos compatíveis, use `npx expo prebuild`.
+
+## Backlog e planejamento
+
+O backlog consolidado está em [docs/Backlog_MC_Sprints.xlsx](docs/Backlog_MC_Sprints.xlsx). A planilha contém:
+
+- 24 histórias de usuário e seus critérios de aceite;
+- resumo do MVP, versões seguintes e itens futuros;
+- distribuição por Sprint 1, Sprint 2 e Sprint 3;
+- prioridade MoSCoW, complexidade e dependências;
+- IA, comunidade e integrações avançadas fora do escopo atual.
+
+### Prévia da Sprint 1
+
+| ID | Épico | Entrega | Prioridade | Complexidade | Dependência |
+| --- | --- | --- | --- | --- | --- |
+| US-001 | Autenticação e Perfil | Criar conta, entrar e encerrar a sessão com segurança. | Must | M | — |
+| US-002 | Autenticação e Perfil | Visualizar e editar os dados básicos do perfil. | Must | P | US-001 |
+| US-003 | Humor e Diário | Registrar humor, intensidade e uma descrição opcional. | Must | M | US-001 |
+| US-004 | Humor e Diário | Consultar o histórico de humor em lista e gráfico. | Must | M | US-003 |
+| US-005 | Respiração e Relaxamento | Realizar um exercício guiado de respiração. | Must | M | — |
+| US-007 | Ajuda e Segurança | Acessar informações e contatos de apoio em situações de crise. | Must | M | — |
+| US-008 | Autoavaliação | Responder questionários e visualizar resultados informativos. | Should | M | US-001 |
+| US-009 | Journaling | Criar, salvar e consultar registros de diário guiado. | Must | M | US-001 |
+
+Os critérios de aceite completos estão na aba **Backlog Simplificado** da planilha. A aba **Sprints** apresenta o planejamento das demais versões.
+
+## Documentação adicional
+
+- [Configuração do ambiente](CONFIGURACAO.md)
+- [Documentação da API](backend/README.md)
+- [Documentação do banco](database/README.md)
+- [Expo SDK](https://docs.expo.dev/versions/latest/)
+- [Expo SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore/)

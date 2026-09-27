@@ -1,19 +1,22 @@
 /* eslint-env jest */
-jest.mock('react-native-keychain', () => {
-  let stored = false;
+jest.mock('expo-secure-store', () => {
+  let stored = null;
   return {
-    ACCESSIBLE: { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'device-only' },
-    setGenericPassword: jest.fn(async (username, password) => {
-      stored = { username, password };
-      return true;
+    WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'device-only',
+    setItemAsync: jest.fn(async (key, value) => {
+      stored = value;
     }),
-    getGenericPassword: jest.fn(async () => stored),
-    resetGenericPassword: jest.fn(async () => {
-      stored = false;
-      return true;
+    getItemAsync: jest.fn(async () => stored),
+    deleteItemAsync: jest.fn(async () => {
+      stored = null;
     }),
   };
 });
+
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { expoConfig: { hostUri: '127.0.0.1:8081' } },
+}));
 
 jest.mock(
   'react-native-safe-area-context',
