@@ -652,12 +652,12 @@ function MainApp() {
     >
       {(
         [
-          { key: 'home', icon: '🏠', label: 'Início' },
-          { key: 'humor', icon: '😊', label: 'Humor' },
-          { key: 'historico', icon: '📊', label: 'Histórico' },
-          { key: 'respiracao', icon: '🌬️', label: 'Respiração' },
-          { key: 'diario', icon: '📝', label: 'Diário' },
-          { key: 'perfil', icon: '👤', label: 'Perfil' },
+          { key: 'home', icon: '⌂', label: 'Início' },
+          { key: 'humor', icon: '●', label: 'Humor' },
+          { key: 'historico', icon: '▥', label: 'Histórico' },
+          { key: 'respiracao', icon: '◌', label: 'Respirar' },
+          { key: 'diario', icon: '✎', label: 'Diário' },
+          { key: 'perfil', icon: '♙', label: 'Perfil' },
         ] as const
       ).map(({ key, icon, label }) => (
         <Pressable
@@ -670,6 +670,12 @@ function MainApp() {
         >
           <Text style={screen === key ? styles.tabTextActive : styles.tabText}>
             {icon}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={screen === key ? styles.tabLabelActive : styles.tabLabel}
+          >
+            {label}
           </Text>
         </Pressable>
       ))}
@@ -2117,12 +2123,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: '#e7eef1',
-    paddingTop: 6,
-    paddingBottom: 14,
-    paddingHorizontal: 6,
+    paddingTop: 5,
+    paddingBottom: 10,
+    paddingHorizontal: 4,
     justifyContent: 'space-around',
     marginTop: -14,
-    minHeight: 60,
+    minHeight: 68,
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -2130,30 +2136,42 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
-    paddingVertical: 6,
+    paddingVertical: 4,
     alignItems: 'center',
     borderRadius: 10,
-    minHeight: 38,
+    minHeight: 50,
     justifyContent: 'center',
   },
   tabItemActive: {
     flex: 1,
     backgroundColor: '#eaf5f0',
-    paddingVertical: 6,
+    paddingVertical: 4,
     alignItems: 'center',
     borderRadius: 10,
-    minHeight: 38,
+    minHeight: 50,
     justifyContent: 'center',
   },
   tabText: {
     color: '#586b6f',
     fontWeight: '600',
-    fontSize: 18,
+    fontSize: 17,
   },
   tabTextActive: {
     color: '#1f8a68',
     fontWeight: '700',
-    fontSize: 18,
+    fontSize: 17,
+  },
+  tabLabel: {
+    color: '#586b6f',
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  tabLabelActive: {
+    color: '#1f8a68',
+    fontSize: 9,
+    fontWeight: '800',
+    marginTop: 1,
   },
   homeHeader: {
     flexDirection: 'row',
