@@ -15,106 +15,115 @@ Aplicativo móvel de acompanhamento de bem-estar desenvolvido com React Native, 
 
 ## Pré-requisitos
 
-Instale [Node.js](https://nodejs.org/) 22.13 ou superior, Git e o [Expo Go](https://expo.dev/go) compatível com o SDK 57 no celular. O fluxo local do banco usa PowerShell no Windows.
+- [Node.js](https://nodejs.org/) 22.13 ou superior e [Git](https://git-scm.com/);
+- [Docker](https://www.docker.com/) e Docker Compose (para gerenciar o PostgreSQL de forma isolada na porta 5433, compatível com Linux e Windows);
+- Aplicativo [Expo Go](https://expo.dev/go) compatível com o SDK 57 instalado no celular (Android ou iOS);
+- *(Opcional)* Para depuração via USB no Android: `adb` (`sudo apt install adb` no Linux ou platform-tools no Windows).
 
-Para executar pelo Wi-Fi, o celular e o computador precisam estar na mesma rede. Autorize o Node.js no Firewall do Windows para redes privadas quando o sistema solicitar.
+Para executar pelo Wi-Fi, o celular e o computador precisam estar conectados na mesma rede local. Se solicitado, autorize o Node.js no firewall do seu sistema operacional.
 
 ## Instalação
 
 Clone o repositório e entre na pasta:
 
-```powershell
+```bash
 git clone URL_DO_REPOSITORIO
 cd MenteClara
 ```
 
 Instale as dependências:
 
-```powershell
+```bash
 npm install
 ```
 
-Na primeira execução, prepare o PostgreSQL e aplique as migrations:
+Na primeira execução, inicialize o banco de dados e aplique as migrations:
 
-```powershell
+```bash
 npm run db:setup
 ```
 
-Esse comando cria o banco local e gera `backend/.env`. Os arquivos `.env`, `.local/` e `.local-logs/` são locais e não devem ser enviados ao Git.
+Esse comando inicializa o container PostgreSQL via Docker (porta `5433`), cria o usuário e banco `mente_clara`, aplica todas as migrações SQL e gera o arquivo `backend/.env` com credenciais seguras. Os arquivos `.env`, `.local/` e `.local-logs/` são locais e não devem ser enviados ao Git.
 
 ## Executar no Expo Go pelo Wi-Fi
 
-Use três terminais abertos na pasta do projeto.
+Abra três abas de terminal na pasta do projeto:
 
-No primeiro, inicie o banco:
+No primeiro terminal, certifique-se de que o banco está ativo:
 
-```powershell
+```bash
 npm run db:start
 ```
 
-No segundo, inicie a API para a rede local:
+No segundo terminal, inicie a API para a rede local:
 
-```powershell
+```bash
 npm run api:lan
 ```
 
-No terceiro, inicie o Expo:
+No terceiro terminal, inicie o servidor do Expo:
 
-```powershell
+```bash
 npm start
 ```
 
-Depois que o QR code aparecer:
+Depois que o QR code aparecer no terminal:
 
-1. Abra o Expo Go no celular.
+1. Abra o aplicativo **Expo Go** no celular.
 2. Leia o QR code mostrado no terminal.
-3. Aguarde a primeira compilação do bundle.
+3. Aguarde a primeira compilação do bundle JavaScript.
 4. Se aparecer o menu azul de desenvolvimento, toque em **Continue** e feche-o pelo **X**.
 
-Mantenha os três terminais abertos enquanto usar o aplicativo.
+Mantenha os três terminais abertos enquanto utilizar o aplicativo.
 
 ## Endereço da API
 
-Pelo Wi-Fi, o aplicativo tenta localizar automaticamente o computador que executa o Metro. Se houver VPNs ou adaptadores virtuais e o Expo escolher o IP errado, copie o arquivo de exemplo:
+Pelo Wi-Fi, o aplicativo tenta localizar automaticamente o computador que executa o Metro. Se houver VPNs ou adaptadores virtuais e o Expo escolher o IP errado, crie ou copie o arquivo de configuração:
 
-```powershell
-Copy-Item .env.example .env
-```
+* **Linux / macOS:**
+  ```bash
+  cp .env.example .env
+  ```
+* **Windows (PowerShell):**
+  ```powershell
+  Copy-Item .env.example .env
+  ```
 
-Edite `.env` e informe o IPv4 do computador:
+Edite o `.env` na raiz informando o IPv4 do seu computador na rede local:
 
 ```dotenv
 EXPO_PUBLIC_API_URL=http://192.168.1.10:3001
 ```
 
-Descubra o endereço com `ipconfig` e use o IPv4 do adaptador conectado à mesma rede do celular. Reinicie o Expo depois da alteração. Variáveis `EXPO_PUBLIC_*` são públicas; não coloque senhas ou tokens nelas.
+> **Dica:** Descubra o IP da sua máquina com `hostname -I` (Linux) ou `ipconfig` (Windows). Reinicie o Expo após alterar o `.env`.
 
-## Executar no Android por USB
+## Executar no Android por USB (sem depender de Wi-Fi)
 
-Ative a depuração USB, conecte o aparelho e confirme a conexão:
+Conecte o celular com a **Depuração USB** ativada e confirme o reconhecimento:
 
-```powershell
+```bash
 adb devices
 ```
 
-No `.env`, use:
+No arquivo `.env` da raiz, defina:
 
 ```dotenv
 EXPO_PUBLIC_API_URL=http://127.0.0.1:3001
 ```
 
-Inicie o banco e a API local:
+Em um terminal, inicie a API localmente:
 
-```powershell
-npm run db:start
+```bash
 npm run api:start
 ```
 
-Em outro terminal:
+No segundo terminal, inicie a execução direta via USB:
 
-```powershell
+```bash
 npm run android:usb
 ```
+
+O comando configurará os túneis `adb reverse` (para as portas 8081 e 3001) e abrirá o aplicativo automaticamente no Expo Go do seu celular.
 
 ## Comandos disponíveis
 

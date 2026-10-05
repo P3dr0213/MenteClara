@@ -1070,6 +1070,19 @@ function MainApp() {
             { backgroundColor: theme.background },
           ]}
         >
+          <Pressable
+            accessibilityLabel="Voltar ao diário"
+            style={styles.topBackButton}
+            onPress={() => {
+              resetDiaryDraft();
+              setScreen('diario');
+            }}
+          >
+            <Text style={[styles.topBackButtonText, { color: theme.accent }]}>
+              ← Voltar ao diário
+            </Text>
+          </Pressable>
+
           <Text style={[styles.title, { color: theme.text }]}>
             Nova entrada
           </Text>
@@ -1149,6 +1162,22 @@ function MainApp() {
             }}
           >
             <Text style={styles.primaryButtonText}>Salvar entrada</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityLabel="Cancelar e voltar ao diário"
+            style={[
+              styles.backButton,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+            onPress={() => {
+              resetDiaryDraft();
+              setScreen('diario');
+            }}
+          >
+            <Text style={[styles.backButtonText, { color: theme.text }]}>
+              Cancelar / Voltar
+            </Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -2883,6 +2912,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 16,
+  },
+  topBackButton: {
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  topBackButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
   },
   backButton: {
     borderRadius: 12,

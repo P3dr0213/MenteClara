@@ -27,16 +27,12 @@ function validateDiaryEntry(input = {}) {
     errors.prompt = 'A pergunta do diário deve ter no máximo 255 caracteres.';
   }
 
-  if (!normalized.resposta || normalized.resposta.length < 10) {
-    errors.resposta = 'O texto do diário deve ter ao menos 10 caracteres.';
+  if (!normalized.resposta || normalized.resposta.length < 1) {
+    errors.resposta = 'O texto do diário não pode ficar vazio.';
   }
 
   if (normalized.resposta.length > 5000) {
     errors.resposta = 'O diário deve ter no máximo 5000 caracteres.';
-  }
-
-  if (normalized.usePrompt && normalized.prompt.length > 255) {
-    errors.prompt = 'A pergunta do diário deve ter no máximo 255 caracteres.';
   }
 
   return {

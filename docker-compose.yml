@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mente-clara-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: menteclara_admin_password
+      POSTGRES_DB: mente_clara
+    volumes:
+      - mente-clara-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mente_clara"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  mente-clara-postgres-data:
