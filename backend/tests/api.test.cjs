@@ -332,6 +332,65 @@ test('API real: autenticacao, perfil, isolamento, filtros e logout', async t => 
         );
       },
     );
+    await t.test(
+      'diario edita e exclui com persistencia e isolamento',
+      async () => {
+        const route = '/api/diary/' + diary.data.registro.id;
+        const body = { prompt: '', resposta: 'Texto atualizado' };
+        for (const method of ['PUT', 'DELETE']) {
+          assert.equal((await call(route, { method, body })).status, 401);
+          assert.equal(
+            (await call(route, { method, body, token: b.data.token })).status,
+            404,
+          );
+          assert.equal(
+            (
+              await call('/api/diary/invalido', {
+                method,
+                body,
+                token: a.data.token,
+              })
+            ).status,
+            400,
+          );
+        }
+        assert.equal(
+          (
+            await call(route, {
+              method: 'PUT',
+              body: { resposta: ' ' },
+              token: a.data.token,
+            })
+          ).status,
+          400,
+        );
+        const updated = await call(route, {
+          method: 'PUT',
+          body,
+          token: a.data.token,
+        });
+        assert.equal(updated.status, 200);
+        assert.equal(updated.data.registro.prompt, null);
+        assert.equal(
+          (await call(route, { token: a.data.token })).data.registro.resposta,
+          body.resposta,
+        );
+        assert.equal(
+          (await call(route, { method: 'DELETE', token: a.data.token })).status,
+          204,
+        );
+        assert.equal((await call(route, { token: a.data.token })).status, 404);
+        assert.equal(
+          (await call(route, { method: 'DELETE', token: a.data.token })).status,
+          404,
+        );
+        assert.equal(
+          (await call(route, { method: 'PUT', body, token: a.data.token }))
+            .status,
+          404,
+        );
+      },
+    );
     await t.test('filtros de 7 e 30 dias, sem registros futuros', async () => {
       const id = mood.data.registro.id;
       await pool.query(

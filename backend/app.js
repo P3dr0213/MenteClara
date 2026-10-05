@@ -247,6 +247,45 @@ function createApp({ pool, jwtSecret }) {
       res.json({ registros: result.rows });
     }),
   );
+  app.put(
+    '/api/diary/:id',
+    auth,
+    wrap(async (req, res) => {
+      if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(req.params.id)) {
+        return res.status(400).json({ message: 'Registro inválido.' });
+      }
+      const validation = validateDiaryEntry(req.body);
+      if (!validation.valid) {
+        return badInput(res, validation);
+      }
+      const { usePrompt, prompt, resposta } = validation.normalized;
+      const result = await pool.query(
+        'UPDATE registros_diario SET prompt=$1,resposta=$2 WHERE id=$3 AND usuario_id=$4 RETURNING id,prompt,resposta,criado_em',
+        [usePrompt ? prompt : null, resposta, req.params.id, req.auth.userId],
+      );
+      if (!result.rowCount) {
+        return res.status(404).json({ message: 'Registro não encontrado.' });
+      }
+      res.json({ registro: result.rows[0] });
+    }),
+  );
+  app.delete(
+    '/api/diary/:id',
+    auth,
+    wrap(async (req, res) => {
+      if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(req.params.id)) {
+        return res.status(400).json({ message: 'Registro inválido.' });
+      }
+      const result = await pool.query(
+        'DELETE FROM registros_diario WHERE id=$1 AND usuario_id=$2',
+        [req.params.id, req.auth.userId],
+      );
+      if (!result.rowCount) {
+        return res.status(404).json({ message: 'Registro não encontrado.' });
+      }
+      res.status(204).end();
+    }),
+  );
   app.get(
     '/api/diary/:id',
     auth,

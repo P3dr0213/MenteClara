@@ -45,6 +45,8 @@ npm run db:setup
 
 Esse comando inicializa o container PostgreSQL via Docker (porta `5433`), cria o usuário e banco `mente_clara`, aplica todas as migrações SQL e gera o arquivo `backend/.env` com credenciais seguras. Os arquivos `.env`, `.local/` e `.local-logs/` são locais e não devem ser enviados ao Git.
 
+O PostgreSQL fica acessível somente em `127.0.0.1:5433`. A senha administrativa é gerada localmente e fornecida ao Docker por um arquivo em `.local/`. Para instalações anteriores, execute `npm run db:setup` para aplicar a configuração e substituir a senha administrativa antiga, preservando os dados existentes. Use os comandos `db:start` e `db:setup` para preparar esse arquivo antes de iniciar o container.
+
 ## Executar no Expo Go pelo Wi-Fi
 
 Abra três abas de terminal na pasta do projeto:

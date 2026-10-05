@@ -12,7 +12,7 @@ export type Mood = {
 };
 export type DiaryEntry = {
   id: string;
-  prompt: string;
+  prompt: string | null;
   resposta: string;
   criado_em: string;
 };
@@ -113,6 +113,14 @@ export const api = {
     ),
   diaryHistory: (token: string) =>
     request<{ registros: DiaryEntry[] }>('/api/diary/history', 'GET', token),
+  diaryUpdate: (
+    token: string,
+    id: string,
+    body: { prompt: string; resposta: string },
+  ) =>
+    request<{ registro: DiaryEntry }>('/api/diary/' + id, 'PUT', token, body),
+  diaryDelete: (token: string, id: string) =>
+    request<void>('/api/diary/' + id, 'DELETE', token),
   diaryGet: (token: string, id: string) =>
     request<{ registro: DiaryEntry }>('/api/diary/' + id, 'GET', token),
 };

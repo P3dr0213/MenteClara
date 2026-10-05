@@ -16,6 +16,8 @@ Para USB, configure `EXPO_PUBLIC_API_URL=http://127.0.0.1:3001` no `.env` da rai
 - GET /api/mood/:id: consulta somente registro pertencente ao usuario.
 - GET /api/mood/history?period=week ou month: ultimos 7 ou 30 dias corridos, respectivamente.
 - GET /health: verifica disponibilidade do banco.
+- PUT /api/diary/:id: atualiza prompt opcional e resposta da entrada do usuario autenticado.
+- DELETE /api/diary/:id: exclui permanentemente a entrada do usuario autenticado.
 
 Rotas privadas exigem Authorization: Bearer TOKEN.
 JWT usa segredo aleatorio local, assinatura HS256, issuer/audience e validade de 7 dias. As sessoes sao verificadas no banco e revogadas no logout.

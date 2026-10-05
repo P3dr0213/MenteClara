@@ -41,6 +41,90 @@ afterEach(async () => {
   }
   jest.restoreAllMocks();
 });
+const diary = {
+  id: 'd1',
+  prompt: 'Entrada privada',
+  resposta: 'Texto original privado',
+  criado_em: '2026-09-20T12:00:00Z',
+};
+async function openDiary() {
+  await saveSession({ token: 'persistido', user });
+  jest.spyOn(api, 'diaryHistory').mockResolvedValue({ registros: [diary] });
+  await mount();
+  await press('Diário');
+  await press(diary.prompt);
+}
+test('editar diario persiste na API e permite remover o titulo', async () => {
+  const updated = { ...diary, prompt: null, resposta: 'Texto revisado' };
+  const update = jest
+    .spyOn(api, 'diaryUpdate')
+    .mockResolvedValue({ registro: updated });
+  await openDiary();
+  await press('Editar');
+  await act(async () => {
+    const inputs = tree.root.findAllByType(TextInput);
+    inputs[0].props.onChangeText('');
+    inputs[1].props.onChangeText(updated.resposta);
+  });
+  await press('Salvar alterações');
+  expect(update).toHaveBeenCalledWith('persistido', diary.id, {
+    prompt: '',
+    usePrompt: false,
+    resposta: updated.resposta,
+  });
+  expect(JSON.stringify(tree.toJSON())).toContain(updated.resposta);
+});
+test('voltar da edicao descarta alteracoes sem modificar a entrada salva', async () => {
+  const update = jest.spyOn(api, 'diaryUpdate');
+  await openDiary();
+  await press('Editar');
+  await act(async () => {
+    tree.root.findAllByType(TextInput)[1].props.onChangeText('Rascunho descartado');
+  });
+  await press('Voltar');
+  expect(JSON.stringify(tree.toJSON())).toContain(diary.resposta);
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Rascunho descartado');
+  expect(update).not.toHaveBeenCalled();
+});
+test('falha ao excluir preserva entrada e permite tentar novamente', async () => {
+  const remove = jest
+    .spyOn(api, 'diaryDelete')
+    .mockRejectedValueOnce(new ApiError('Sem rede', 0))
+    .mockResolvedValueOnce(undefined);
+  await openDiary();
+  await press('Excluir');
+  await press('Excluir entrada');
+  expect(JSON.stringify(tree.toJSON())).toContain(diary.resposta);
+  expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Sem rede');
+  jest.mocked(api.diaryHistory).mockResolvedValue({ registros: [] });
+  await press('Excluir entrada');
+  expect(remove).toHaveBeenLastCalledWith('persistido', diary.id);
+  expect(JSON.stringify(tree.toJSON())).not.toContain(diary.resposta);
+});
+test('trocar de conta limpa diario mesmo quando o novo historico falha', async () => {
+  jest.spyOn(api, 'logout').mockResolvedValue(undefined);
+  jest
+    .spyOn(api, 'login')
+    .mockResolvedValue({ token: 'outra-conta', user: { ...user, id: 'u2' } });
+  await openDiary();
+  await press('Voltar');
+  await press('Perfil');
+  await press('Sair da conta');
+  await act(async () => {
+    const inputs = tree.root.findAllByType(TextInput);
+    inputs
+      .find(node => node.props.accessibilityLabel === 'Email')!
+      .props.onChangeText('outra@example.invalid');
+    inputs
+      .find(node => node.props.accessibilityLabel === 'Senha')!
+      .props.onChangeText('Senha@123');
+  });
+  await press('Entrar');
+  jest.mocked(api.diaryHistory).mockRejectedValue(new ApiError('Sem rede', 0));
+  await press('Diário');
+  expect(JSON.stringify(tree.toJSON())).not.toContain(diary.resposta);
+  expect(JSON.stringify(tree.toJSON())).not.toContain(diary.prompt);
+});
 test('login usa API, abre perfil real e logout limpa sessao', async () => {
   const login = jest
     .spyOn(api, 'login')

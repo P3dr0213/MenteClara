@@ -4,13 +4,15 @@ services:
     container_name: mente-clara-db
     restart: unless-stopped
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: menteclara_admin_password
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
       POSTGRES_DB: mente_clara
     volumes:
       - mente-clara-postgres-data:/var/lib/postgresql/data
+    secrets:
+      - postgres_admin_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d mente_clara"]
       interval: 3s
@@ -19,3 +21,7 @@ services:
 
 volumes:
   mente-clara-postgres-data:
+
+secrets:
+  postgres_admin_password:
+    file: ./.local/postgres-admin-password

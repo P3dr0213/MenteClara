@@ -70,26 +70,42 @@ function getCredentials() {
   if (!credentials) {
     credentials = {
       adminUser: 'postgres',
-      adminPassword: 'menteclara_admin_password',
+      adminPassword: generateSecureToken(32),
       appUser: 'mente_clara_app',
       appPassword: generateSecureToken(32),
       port: 5433,
       database: 'mente_clara',
     };
-    fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2), 'utf8');
   }
+
+  if (!credentials.adminPassword || credentials.adminPassword === 'menteclara_admin_password') {
+    credentials.adminPassword = generateSecureToken(32);
+  }
+  fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2), { mode: 0o600 });
+  fs.chmodSync(credentialsPath, 0o600);
+  const adminPasswordPath = path.join(localRoot, 'postgres-admin-password');
+  fs.writeFileSync(adminPasswordPath, credentials.adminPassword, { mode: 0o600 });
+  fs.chmodSync(adminPasswordPath, 0o600);
 
   return credentials;
 }
 
-async function setup() {
+function startDatabase() {
+  const credentials = getCredentials();
   console.log('[db:setup] Iniciando container PostgreSQL...');
   runSync('docker', ['compose', 'up', '-d', 'db']);
 
   console.log('[db:setup] Aguardando banco ficar pronto...');
   waitForDatabaseReady();
 
-  const credentials = getCredentials();
+  // Existing volumes do not apply POSTGRES_PASSWORD_FILE again.
+  const password = credentials.adminPassword.replace(/'/g, "''");
+  invokeSql(`ALTER ROLE postgres WITH PASSWORD '${password}';`);
+  return credentials;
+}
+
+async function setup() {
+  const credentials = startDatabase();
 
   console.log('[db:setup] Configurando papel e permissoes...');
   invokeSql(`
@@ -181,7 +197,7 @@ function testDatabase() {
 function main() {
   switch (action) {
     case 'start':
-      runSync('docker', ['compose', 'up', '-d', 'db']);
+      startDatabase();
       console.log('PostgreSQL iniciado via Docker na porta 5433.');
       break;
     case 'stop':

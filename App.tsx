@@ -202,6 +202,12 @@ function MainApp() {
     setDescription('');
     setMoodType('feliz');
     setIntensity(4);
+    setDiaryEntries([]);
+    setSelectedDiaryEntry(null);
+    setDiaryTitle('');
+    setDiaryText('');
+    setDiaryMood('bem');
+    setDiaryLoading(false);
     setScreen('login');
   }, []);
   const acceptSession = useCallback(async (next: Session) => {
@@ -283,10 +289,11 @@ function MainApp() {
     }
     let active = true;
     setDiaryLoading(true);
+    const token = session.token;
     api
-      .diaryHistory(session.token)
+      .diaryHistory(token)
       .then(result => {
-        if (active) {
+        if (active && currentToken.current === token) {
           setDiaryEntries(result.registros);
         }
       })
@@ -423,8 +430,12 @@ function MainApp() {
       return;
     }
     setLoading(true);
+    const token = session.token;
     try {
-      const result = await api.diarySave(session.token, validation.normalized);
+      const result = await api.diarySave(token, validation.normalized);
+      if (currentToken.current !== token) {
+        return;
+      }
       const nextEntry = result.registro;
       setDiaryEntries(current => [nextEntry, ...current]);
       setDiaryText('');
@@ -433,6 +444,49 @@ function MainApp() {
       setScreen('diario');
       setSelectedDiaryEntry(nextEntry);
       Alert.alert('Sucesso', 'Registro do diário salvo.');
+    } catch (error) {
+      Alert.alert('Erro', message(error));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function changeDiaryEntry(remove: boolean) {
+    if (!session || !selectedDiaryEntry || loading) {
+      return;
+    }
+    const validation = validateDiaryEntry({
+      prompt: diaryTitle,
+      resposta: diaryText,
+    });
+    if (!remove && !validation.valid) {
+      Alert.alert('Validação', String(Object.values(validation.errors)[0]));
+      return;
+    }
+    const token = session.token;
+    const id = selectedDiaryEntry.id;
+    setLoading(true);
+    try {
+      if (remove) {
+        await api.diaryDelete(token, id);
+        if (currentToken.current !== token) {
+          return;
+        }
+        setDiaryEntries(current => current.filter(item => item.id !== id));
+        setSelectedDiaryEntry(null);
+        setScreen('diario');
+      } else {
+        const result = await api.diaryUpdate(token, id, validation.normalized);
+        if (currentToken.current !== token) {
+          return;
+        }
+        setDiaryEntries(current =>
+          current.map(item => item.id === id ? result.registro : item),
+        );
+        setSelectedDiaryEntry(result.registro);
+        setScreen('diarioDetalhes');
+      }
+      resetDiaryDraft();
     } catch (error) {
       Alert.alert('Erro', message(error));
     } finally {
@@ -812,21 +866,19 @@ function MainApp() {
             </Text>
             <Pressable
               style={styles.deleteButton}
-              onPress={() => {
-                setDiaryEntries(current =>
-                  current.filter(item => item.id !== selectedDiaryEntry.id),
-                );
-                setSelectedDiaryEntry(null);
-                setScreen('diario');
-              }}
+              disabled={loading}
+              onPress={() => changeDiaryEntry(true)}
             >
-              <Text style={styles.deleteButtonText}>Excluir entrada</Text>
+              <Text style={styles.deleteButtonText}>
+                {loading ? 'Excluindo...' : 'Excluir entrada'}
+              </Text>
             </Pressable>
             <Pressable
               style={[
                 styles.cancelButton,
                 { backgroundColor: theme.accentSoft },
               ]}
+              disabled={loading}
               onPress={() => setScreen('diarioDetalhes')}
             >
               <Text style={[styles.cancelButtonText, { color: theme.text }]}>
@@ -880,7 +932,7 @@ function MainApp() {
                 color: theme.text,
               },
             ]}
-            value={diaryTitle || selectedDiaryEntry.prompt || ''}
+            value={diaryTitle}
             onChangeText={setDiaryTitle}
             placeholder="Dê um nome a este momento"
             placeholderTextColor={theme.textMuted}
@@ -897,15 +949,8 @@ function MainApp() {
               },
             ]}
             multiline
-            value={selectedDiaryEntry.resposta}
-            onChangeText={value => {
-              if (selectedDiaryEntry) {
-                setSelectedDiaryEntry({
-                  ...selectedDiaryEntry,
-                  resposta: value,
-                });
-              }
-            }}
+            value={diaryText}
+            onChangeText={setDiaryText}
             placeholder="Escreva aqui..."
             placeholderTextColor={theme.textMuted}
           />
@@ -939,25 +984,12 @@ function MainApp() {
 
           <Pressable
             style={styles.primaryButton}
-            onPress={() => {
-              if (!selectedDiaryEntry) {
-                return;
-              }
-              setDiaryEntries(current =>
-                current.map(item =>
-                  item.id === selectedDiaryEntry.id
-                    ? {
-                        ...item,
-                        prompt: diaryTitle || selectedDiaryEntry.prompt,
-                        resposta: selectedDiaryEntry.resposta,
-                      }
-                    : item,
-                ),
-              );
-              setScreen('diarioDetalhes');
-            }}
+            disabled={loading}
+            onPress={() => changeDiaryEntry(false)}
           >
-            <Text style={styles.primaryButtonText}>Salvar alterações</Text>
+            <Text style={styles.primaryButtonText}>
+              {loading ? 'Salvando...' : 'Salvar alterações'}
+            </Text>
           </Pressable>
 
           <Pressable
@@ -1019,6 +1051,7 @@ function MainApp() {
               ]}
               onPress={() => {
                 setDiaryTitle(selectedDiaryEntry.prompt || '');
+                setDiaryText(selectedDiaryEntry.resposta);
                 setScreen('diarioEditar');
               }}
             >
