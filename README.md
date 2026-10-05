@@ -198,20 +198,40 @@ O backlog consolidado está em [docs/Backlog_MC_Sprints.xlsx](docs/Backlog_MC_Sp
 - prioridade MoSCoW, complexidade e dependências;
 - IA, comunidade e integrações avançadas fora do escopo atual.
 
-### Prévia da Sprint 1
+## Backlog da Sprint 1
 
-| ID | Épico | Entrega | Prioridade | Complexidade | Dependência |
-| --- | --- | --- | --- | --- | --- |
-| US-001 | Autenticação e Perfil | Criar conta, entrar e encerrar a sessão com segurança. | Must | M | — |
-| US-002 | Autenticação e Perfil | Visualizar e editar os dados básicos do perfil. | Must | P | US-001 |
-| US-003 | Humor e Diário | Registrar humor, intensidade e uma descrição opcional. | Must | M | US-001 |
-| US-004 | Humor e Diário | Consultar o histórico de humor em lista e gráfico. | Must | M | US-003 |
-| US-005 | Respiração e Relaxamento | Realizar um exercício guiado de respiração. | Must | M | — |
-| US-007 | Ajuda e Segurança | Acessar informações e contatos de apoio em situações de crise. | Must | M | — |
-| US-008 | Autoavaliação | Responder questionários e visualizar resultados informativos. | Should | M | US-001 |
-| US-009 | Journaling | Criar, salvar e consultar registros de diário guiado. | Must | M | US-001 |
+A Sprint 1 concentra as funcionalidades essenciais para a primeira versão funcional do **Mente Clara**, priorizando autenticação, acompanhamento emocional, registro de diário, exercícios de respiração e acesso a informações de apoio.
 
-Os critérios de aceite completos estão na aba **Backlog Simplificado** da planilha. A aba **Sprints** apresenta o planejamento das demais versões.
+| ID | Épico | História de Usuário / Entrega | Prioridade | Story Points | Dependências |
+| --- | --- | --- | :---: | :---: | :---: |
+| US-001 | Autenticação e Perfil | Implementar cadastro, autenticação e encerramento seguro da sessão do usuário. | 1 | 3 | — |
+| US-002 | Autenticação e Perfil | Permitir a visualização e atualização dos dados básicos do perfil do usuário. | 1 | 2 | US-001 |
+| US-003 | Humor e Diário | Permitir o registro do estado de humor, sua intensidade e uma descrição opcional. | 1 | 3 | US-001 |
+| US-004 | Humor e Diário | Disponibilizar o histórico de registros de humor por meio de lista e visualização gráfica. | 1 | 3 | US-003 |
+| US-005 | Respiração e Relaxamento | Disponibilizar exercício guiado de respiração para auxiliar em momentos de relaxamento. | 1 | 3 | — |
+| US-007 | Ajuda e Segurança | Disponibilizar informações e contatos de apoio para situações de crise ou necessidade de auxílio. | 1 | 3 | — |
+| US-008 | Autoavaliação | Permitir a realização de questionários de autoavaliação e apresentar resultados de caráter informativo. | 2 | 3 | US-001 |
+| US-009 | Journaling | Permitir a criação, armazenamento e consulta de registros de diário guiado. | 1 | 3 | US-001 |
+
+### Critérios de priorização
+
+- **Prioridade 1:** funcionalidade essencial para a entrega da versão.
+- **Prioridade 2:** funcionalidade importante, mas que não impede a entrega principal.
+- **Prioridade 3:** funcionalidade desejável, podendo ser planejada para versões futuras.
+
+### Story Points
+
+Os **Story Points** representam uma estimativa relativa do esforço necessário para implementar cada história, considerando complexidade, quantidade de trabalho e possíveis incertezas.
+
+| Story Points | Esforço estimado |
+| :---: | --- |
+| 1 | Muito simples |
+| 2 | Pequeno |
+| 3 | Médio |
+| 5 | Médio/Alto |
+| 8 | Alto |
+
+> Os critérios de aceite detalhados de cada história estão disponíveis na aba **Backlog Simplificado** da planilha do projeto. O planejamento e a distribuição das histórias nas próximas entregas podem ser consultados na aba **Sprints**.
 
 ## Documentação adicional
 
