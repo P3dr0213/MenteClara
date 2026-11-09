@@ -1,7 +1,9 @@
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import * as Network from 'expo-network';
 import {
   ActivityIndicator,
+  AppState,
   Alert,
   Animated,
   KeyboardAvoidingView,
@@ -36,6 +38,11 @@ import {
 import { validateMoodEntry } from './src/mood';
 import { validateDiaryEntry } from './src/diary';
 import HistoryScreen from './src/HistoryScreen';
+import AssessmentScreen from './src/AssessmentScreen';
+import SprintTwoScreen from './src/SprintTwoScreen';
+import SprintThreeScreen from './src/SprintThreeScreen';
+import { createClientId, getPending, pendingDiary, queueRecord, syncPending, updatePendingMood } from './src/offlineQueue';
+import { syncWellbeing } from './src/wellbeing';
 
 type Screen =
   | 'login'
@@ -45,6 +52,9 @@ type Screen =
   | 'editarPerfil'
   | 'humor'
   | 'historico'
+  | 'progresso'
+  | 'bemestar'
+  | 'autoavaliacao'
   | 'respiracao'
   | 'diario'
   | 'diarioNova'
@@ -52,6 +62,7 @@ type Screen =
   | 'diarioEditar'
   | 'diarioExcluir'
   | 'emergencia'
+  | 'profissionais'
   | 'chatIa';
 const moods = ['triste', 'ansioso', 'feliz', 'calmo', 'motivado'];
 const intensityLabels = ['Muito baixa', 'Baixa', 'Média', 'Alta', 'Muito alta'];
@@ -108,6 +119,7 @@ function MainApp() {
   const [moodType, setMoodType] = useState('feliz');
   const [intensity, setIntensity] = useState(4);
   const [description, setDescription] = useState('');
+  const [editingMoodId, setEditingMoodId] = useState<string | null>(null);
   const [diaryTitle, setDiaryTitle] = useState('');
   const [diaryText, setDiaryText] = useState('');
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
@@ -219,8 +231,9 @@ function MainApp() {
   const restoreSession = useCallback(async () => {
     setBooting(true);
     setBootError('');
+    let stored: Session | null = null;
     try {
-      const stored: Session | null = await getSession();
+      stored = await getSession();
       if (stored) {
         const result = await api.profile(stored.token);
         await acceptSession({ token: stored.token, user: result.user });
@@ -229,6 +242,9 @@ function MainApp() {
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         await resetSession();
+      } else if (stored && error instanceof ApiError && error.status === 0) {
+        await acceptSession(stored);
+        setScreen('home');
       } else {
         setBootError(message(error));
       }
@@ -240,6 +256,30 @@ function MainApp() {
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
+  useEffect(() => {
+    if (!session?.user.id || !session.token) return;
+    const userId = session.user.id;
+    const token = session.token;
+    const syncIfConnected = () => {
+      Network.getNetworkStateAsync().then(state => {
+        if (state.isConnected && state.isInternetReachable !== false) {
+          syncPending(userId, token).catch(() => undefined);
+          syncWellbeing(userId, token).catch(() => undefined);
+        }
+      }).catch(() => undefined);
+    };
+    syncIfConnected();
+    const appSubscription = AppState.addEventListener('change', state => {
+      if (state === 'active') syncIfConnected();
+    });
+    const networkSubscription = Network.addNetworkStateListener(state => {
+      if (state.isConnected && state.isInternetReachable !== false) syncIfConnected();
+    });
+    return () => {
+      appSubscription.remove();
+      networkSubscription.remove();
+    };
+  }, [session?.user.id, session?.token]);
   useEffect(() => {
     setUnauthorizedHandler(token => {
       if (token === currentToken.current) {
@@ -294,12 +334,21 @@ function MainApp() {
       .diaryHistory(token)
       .then(result => {
         if (active && currentToken.current === token) {
-          setDiaryEntries(result.registros);
+          getPending(session.user.id).then(pending => {
+            if (!active || currentToken.current !== token) return;
+            const offline = pending.map(pendingDiary).filter((entry): entry is DiaryEntry => entry !== null);
+            setDiaryEntries([...offline, ...result.registros]);
+          });
         }
       })
       .catch(error => {
         if (active) {
-          Alert.alert('Erro', message(error));
+          getPending(session.user.id).then(pending => {
+            if (!active) return;
+            const offline = pending.map(pendingDiary).filter((entry): entry is DiaryEntry => entry !== null);
+            setDiaryEntries(offline);
+            if (!offline.length) Alert.alert('Erro', message(error));
+          });
         }
       })
       .finally(() => {
@@ -310,7 +359,7 @@ function MainApp() {
     return () => {
       active = false;
     };
-  }, [screen, session?.token]);
+  }, [screen, session?.user.id, session?.token]);
 
   async function authenticate() {
     const validation =
@@ -397,17 +446,33 @@ function MainApp() {
       return;
     }
     const token = session.token;
+    const clientId = editingMoodId || createClientId();
     setLoading(true);
     try {
-      await api.saveMood(token, validation.normalized);
+      if (editingMoodId) {
+        const wasPending = await updatePendingMood(session.user.id, editingMoodId, validation.normalized);
+        if (!wasPending) await api.updateMood(token, editingMoodId, validation.normalized);
+      } else {
+        try {
+          await api.saveMood(token, { ...validation.normalized, clientId });
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 0)) throw error;
+          await queueRecord(session.user.id, {
+            kind: 'mood', id: clientId, createdAt: new Date().toISOString(),
+            value: { ...validation.normalized },
+          });
+          Alert.alert('Salvo neste aparelho', 'O registro será enviado quando a conexão retornar.');
+        }
+      }
       if (currentToken.current !== token) {
         return;
       }
       setDescription('');
       setMoodType('feliz');
       setIntensity(4);
+      setEditingMoodId(null);
       setScreen('historico');
-      Alert.alert('Sucesso', 'Registro salvo.');
+      Alert.alert('Sucesso', editingMoodId ? 'Registro atualizado.' : 'Registro salvo.');
     } catch (error) {
       Alert.alert('Erro', message(error));
     } finally {
@@ -431,8 +496,21 @@ function MainApp() {
     }
     setLoading(true);
     const token = session.token;
+    const clientId = createClientId();
     try {
-      const result = await api.diarySave(token, validation.normalized);
+      let result: { registro: DiaryEntry };
+      try {
+        result = await api.diarySave(token, { ...validation.normalized, clientId });
+      } catch (error) {
+        if (!(error instanceof ApiError && error.status === 0)) throw error;
+        const createdAt = new Date().toISOString();
+        await queueRecord(session.user.id, {
+          kind: 'diary', id: clientId, createdAt,
+          value: { prompt: validation.normalized.usePrompt ? validation.normalized.prompt : null, resposta: validation.normalized.resposta },
+        });
+        result = { registro: { id: clientId, criado_em: createdAt, prompt: validation.normalized.usePrompt ? validation.normalized.prompt : null, resposta: validation.normalized.resposta } };
+        Alert.alert('Salvo neste aparelho', 'A entrada será enviada quando a conexão retornar.');
+      }
       if (currentToken.current !== token) {
         return;
       }
@@ -767,6 +845,7 @@ function MainApp() {
           { key: 'home', icon: '⌂', label: 'Início' },
           { key: 'humor', icon: '●', label: 'Humor' },
           { key: 'historico', icon: '▥', label: 'Histórico' },
+          { key: 'bemestar', icon: '✿', label: 'Bem-estar' },
           { key: 'respiracao', icon: '◌', label: 'Respirar' },
           { key: 'diario', icon: '✎', label: 'Diário' },
           { key: 'perfil', icon: '♙', label: 'Perfil' },
@@ -805,13 +884,96 @@ function MainApp() {
     </View>
   );
 
+  if (screen === 'autoavaliacao') {
+    return (
+      <AssessmentScreen
+        key={session.user.id}
+        darkMode={isDarkMode}
+        onBack={() => setScreen('home')}
+        onHelp={() => setScreen('emergencia')}
+      />
+    );
+  }
   if (screen === 'historico') {
     return (
       <HistoryScreen
         token={session.token}
+        userId={session.user.id}
         onBack={() => setScreen('home')}
         darkMode={isDarkMode}
+        onEdit={entry => {
+          setEditingMoodId(entry.id);
+          setMoodType(entry.tipo);
+          setIntensity(entry.intensidade);
+          setDescription(entry.descricao || '');
+          setScreen('humor');
+        }}
       />
+    );
+  }
+  if (screen === 'bemestar') {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <SprintTwoScreen
+          userId={session.user.id}
+        token={session.token}
+          darkMode={isDarkMode}
+          onThemeChange={() => {
+            const nextTheme = isDarkMode ? 'light' : 'dark';
+            setThemeMode(nextTheme);
+            saveTheme(nextTheme).catch(() =>
+              Alert.alert('Erro', 'Não foi possível salvar o tema.'),
+            );
+          }}
+          onBreathing={() => setScreen('respiracao')}
+        />
+        {tabs}
+      </SafeAreaView>
+    );
+  }
+  if (screen === 'progresso') {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <SprintThreeScreen
+          userId={session.user.id}
+          token={session.token}
+          darkMode={isDarkMode}
+          onSaveReflection={async text => {
+            const prompt = 'Exercício de reflexão';
+            const clientId = createClientId();
+            try {
+              await api.diarySave(session.token, { prompt, resposta: text, clientId });
+            } catch (error) {
+              if (!(error instanceof ApiError && error.status === 0)) throw error;
+              await queueRecord(session.user.id, {
+                kind: 'diary', id: clientId, createdAt: new Date().toISOString(),
+                value: { prompt, resposta: text },
+              });
+            }
+          }}
+        />
+        {tabs}
+      </SafeAreaView>
+    );
+  }
+  if (screen === 'profissionais') {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <ScrollView contentContainerStyle={styles.profileContainer}>
+          <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>Profissionais</Text>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>Diretório ainda não configurado</Text>
+            <Text style={[styles.cardText, { color: theme.textMuted }]}>
+              Este projeto não possui uma fonte verificada de profissionais, região de atendimento ou integração de agendamento. Para evitar apresentar contatos ou credenciais sem confirmação, a lista permanece vazia.
+            </Text>
+            <Text style={[styles.cardText, { color: theme.textMuted, marginTop: 12 }]}>
+              Uma integração futura precisa definir uma fonte oficial, consentimento para compartilhar dados e como tratar disponibilidade e emergências.
+            </Text>
+          </View>
+          {button('Voltar à ajuda', () => setScreen('emergencia'), true)}
+        </ScrollView>
+        {tabs}
+      </SafeAreaView>
     );
   }
   if (screen === 'diarioExcluir' && selectedDiaryEntry) {
@@ -1372,7 +1534,8 @@ function MainApp() {
           </View>
 
           {button('Ligar para CVV', () => Linking.openURL('tel:188'))}
-          {button('Chat com IA', () => setScreen('chatIa'))}
+          {button('Sugestões de apoio', () => setScreen('chatIa'), true)}
+          {button('Consultar profissionais', () => setScreen('profissionais'), true)}
           {button(
             'Falar com apoio',
             () =>
@@ -1398,7 +1561,7 @@ function MainApp() {
             { backgroundColor: theme.background },
           ]}
         >
-          <Text style={[styles.title, { color: theme.text }]}>Chat com IA</Text>
+          <Text style={[styles.title, { color: theme.text }]}>Sugestões de apoio</Text>
 
           <View
             style={[
@@ -1407,8 +1570,7 @@ function MainApp() {
             ]}
           >
             <Text style={[styles.aiText, { color: theme.text }]}>
-              Olá! Posso te ajudar a respirar, organizar seus pensamentos e te
-              orientar em momentos de tensão.
+              Estas sugestões são orientações fixas do aplicativo. Não há uma IA ou atendimento humano neste recurso, e as sugestões não substituem ajuda profissional.
             </Text>
           </View>
 
@@ -1587,7 +1749,7 @@ function MainApp() {
       content = (
         <>
           <Text style={[styles.title, { color: theme.text }]}>
-            Registro de humor
+            {editingMoodId ? 'Editar registro de humor' : 'Registro de humor'}
           </Text>
           <Text style={[styles.label, { color: theme.text }]}>
             Como você está se sentindo?
@@ -1678,7 +1840,7 @@ function MainApp() {
             placeholder="Conte o que aconteceu hoje..."
             placeholderTextColor={theme.textMuted}
           />
-          {button(loading ? 'Salvando...' : 'Salvar registro', saveMood)}
+          {button(loading ? 'Salvando...' : editingMoodId ? 'Salvar alterações' : 'Salvar registro', saveMood)}
           {button('Cancelar', () => setScreen('home'), true)}
         </>
       );
@@ -1863,10 +2025,23 @@ function MainApp() {
                       return;
                     }
 
+                    const clientId = createClientId();
                     try {
-                      await api.saveMood(session.token, validation.normalized);
+                      await api.saveMood(session.token, { ...validation.normalized, clientId });
                     } catch (error) {
-                      Alert.alert('Erro', message(error));
+                      if (error instanceof ApiError && error.status === 0) {
+                        try {
+                          await queueRecord(session.user.id, {
+                            kind: 'mood', id: clientId, createdAt: new Date().toISOString(),
+                            value: { ...validation.normalized },
+                          });
+                          Alert.alert('Salvo neste aparelho', 'O registro será enviado quando a conexão retornar.');
+                        } catch (queueError) {
+                          Alert.alert('Erro', message(queueError));
+                        }
+                      } else {
+                        Alert.alert('Erro', message(error));
+                      }
                     }
                   }}
                   style={[
@@ -1979,6 +2154,8 @@ function MainApp() {
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
               Para você
             </Text>
+            {button('Autoavaliação de bem-estar', () => setScreen('autoavaliacao'), true)}
+            {button('Progresso, dados e reflexão', () => setScreen('progresso'), true)}
             <Pressable
               accessibilityRole="button"
               style={[

@@ -391,8 +391,91 @@ test('API real: autenticacao, perfil, isolamento, filtros e logout', async t => 
         );
       },
     );
+    await t.test('sincronização offline é idempotente e isolada por conta', async () => {
+      const clientId = randomUUID();
+      const body = { tipo: 'calmo', intensidade: 4, descricao: 'Offline', clientId };
+      const first = await call('/api/mood/register', { method: 'POST', token: a.data.token, body });
+      const retry = await call('/api/mood/register', { method: 'POST', token: a.data.token, body });
+      assert.equal(first.status, 201);
+      assert.equal(retry.status, 200);
+      assert.equal(retry.data.registro.id, clientId);
+      assert.equal((await call('/api/mood/' + clientId, { token: b.data.token })).status, 404);
+
+      const diaryClientId = randomUUID();
+      const diaryBody = { prompt: 'Offline', resposta: 'Registro feito sem conexão.', clientId: diaryClientId };
+      const diaryFirst = await call('/api/diary/register', { method: 'POST', token: a.data.token, body: diaryBody });
+      const diaryRetry = await call('/api/diary/register', { method: 'POST', token: a.data.token, body: diaryBody });
+      assert.equal(diaryFirst.status, 201);
+      assert.equal(diaryRetry.status, 200);
+      assert.equal(diaryRetry.data.registro.id, diaryClientId);
+      assert.equal((await call('/api/diary/' + diaryClientId, { token: b.data.token })).status, 404);
+    });
+    await t.test('humor pode ser editado e excluído somente pelo proprietário', async () => {
+      const created = await call('/api/mood/register', {
+        method: 'POST', token: a.data.token,
+        body: { tipo: 'feliz', intensidade: 2, descricao: 'Inicial' },
+      });
+      const route = '/api/mood/' + created.data.registro.id;
+      assert.equal((await call(route, { method: 'PUT', body: { tipo: 'calmo', intensidade: 4 } })).status, 401);
+      assert.equal((await call(route, { method: 'DELETE' })).status, 401);
+      assert.equal((await call(route, { method: 'PUT', token: b.data.token, body: { tipo: 'calmo', intensidade: 4 } })).status, 404);
+      assert.equal((await call(route, { method: 'DELETE', token: b.data.token })).status, 404);
+      assert.equal((await call('/api/mood/invalido', { method: 'PUT', token: a.data.token, body: { tipo: 'calmo', intensidade: 4 } })).status, 400);
+      assert.equal((await call(route, { method: 'PUT', token: a.data.token, body: { tipo: 'desconhecido', intensidade: 4 } })).status, 400);
+      const updated = await call(route, { method: 'PUT', token: a.data.token, body: { tipo: 'calmo', intensidade: 4, descricao: 'Atualizado' } });
+      assert.equal(updated.status, 200);
+      assert.equal(updated.data.registro.descricao, 'Atualizado');
+      assert.equal((await call(route, { token: a.data.token })).data.registro.tipo, 'calmo');
+      assert.equal((await call(route, { method: 'DELETE', token: a.data.token })).status, 204);
+      assert.equal((await call(route, { token: a.data.token })).status, 404);
+    });
+    await t.test('estado de bem-estar autenticado, validado e separado por conta', async () => {
+      assert.equal((await call('/api/user/wellbeing')).status, 401);
+      const initial = await call('/api/user/wellbeing', { token: a.data.token });
+      assert.equal(initial.status, 200);
+      assert.deepEqual(initial.data.state.goals, []);
+      const saved = await call('/api/user/wellbeing', {
+        method: 'PUT', token: a.data.token,
+        body: {
+          reminderEnabled: true, reminderTime: '08:30',
+          completedActivities: ['gratidao'],
+          goals: [{ id: 'g1', title: 'Pausa diária', target: 5, progress: 2 }],
+          points: 999, earnedBadges: ['constancia'],
+        },
+      });
+      assert.equal(saved.status, 200);
+      assert.equal(saved.data.state.points, 10);
+      assert.deepEqual(saved.data.state.earnedBadges, []);
+      assert.equal(saved.data.state.goals[0].progress, 2);
+      assert.deepEqual((await call('/api/user/wellbeing', { token: b.data.token })).data.state.goals, []);
+      assert.equal((await call('/api/user/wellbeing', {
+        method: 'PUT', token: a.data.token,
+        body: { reminderEnabled: true, reminderTime: '25:70', completedActivities: [], goals: [], earnedBadges: [] },
+      })).status, 400);
+    });
+    await t.test('backup exporta e restaura sem duplicar registros', async () => {
+      assert.equal((await call('/api/data/export')).status, 401);
+      const exported = await call('/api/data/export', { token: a.data.token });
+      assert.equal(exported.status, 200);
+      assert.equal(exported.data.format, 'mente-clara-backup-v1');
+      assert.ok(exported.data.registrosHumor.length >= 2);
+      assert.ok(exported.data.registrosDiario.length >= 2);
+      const restored = await call('/api/data/restore', { method: 'POST', token: b.data.token, body: exported.data });
+      assert.equal(restored.status, 201);
+      assert.equal(restored.data.registrosImportados, exported.data.registrosHumor.length + exported.data.registrosDiario.length);
+      const again = await call('/api/data/restore', { method: 'POST', token: b.data.token, body: exported.data });
+      assert.equal(again.status, 201);
+      assert.equal(again.data.registrosImportados, 0);
+      assert.equal(again.data.registrosIgnorados, restored.data.registrosImportados);
+      assert.equal((await call('/api/mood/history?period=month', { token: b.data.token })).data.registros.length, 2);
+      assert.equal((await call('/api/diary/history', { token: b.data.token })).data.registros.length, exported.data.registrosDiario.length);
+    });
     await t.test('filtros de 7 e 30 dias, sem registros futuros', async () => {
       const id = mood.data.registro.id;
+      await pool.query(
+        "UPDATE registros_humor SET criado_em=now()-interval '31 days' WHERE usuario_id=$1 AND id<>$2",
+        [a.data.user.id, id],
+      );
       await pool.query(
         "UPDATE registros_humor SET criado_em=now()-interval '10 days' WHERE id=$1",
         [id],

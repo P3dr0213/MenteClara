@@ -47,6 +47,20 @@ const diary = {
   resposta: 'Texto original privado',
   criado_em: '2026-09-20T12:00:00Z',
 };
+test('abre autoavaliação pelo início e descarta respostas ao sair', async () => {
+  await saveSession({ token: 'persistido', user });
+  await mount();
+  await press('Início');
+  await press('Autoavaliação de bem-estar');
+  await act(async () => {
+    tree.root.findAll(node => node.props.accessibilityRole === 'radio' && typeof node.props.onPress === 'function')[0].props.onPress();
+  });
+  await press('Voltar ao início');
+  await press('Autoavaliação de bem-estar');
+  expect(tree.root.findAll(node => node.props.accessibilityRole === 'radio' && typeof node.props.onPress === 'function' && node.props.accessibilityState.checked)).toHaveLength(0);
+  await press('Acessar ajuda');
+  expect(JSON.stringify(tree.toJSON())).toContain('Ligar para CVV');
+});
 async function openDiary() {
   await saveSession({ token: 'persistido', user });
   jest.spyOn(api, 'diaryHistory').mockResolvedValue({ registros: [diary] });
@@ -202,11 +216,12 @@ test('registra humor com sessao real e abre historico', async () => {
       .props.onChangeText('Dia bom');
   });
   await press('Salvar registro');
-  expect(save).toHaveBeenCalledWith('persistido', {
+  expect(save).toHaveBeenCalledWith('persistido', expect.objectContaining({
     tipo: 'feliz',
     intensidade: 4,
     descricao: 'Dia bom',
-  });
+    clientId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+  }));
   expect(api.history).toHaveBeenCalledWith('persistido', 'week');
 });
 test('sessao expirada retorna ao login sem manter credenciais', async () => {
@@ -220,12 +235,11 @@ test('sessao expirada retorna ao login sem manter credenciais', async () => {
       .some(node => node.props.accessibilityLabel === 'Senha'),
   ).toBe(true);
 });
-test('falha de rede na restauracao permite tentar novamente sem perder sessao', async () => {
+test('falha de rede restaura a sessão cacheada e mantém o acesso local', async () => {
   await saveSession({ token: 'persistido', user });
   jest.mocked(api.profile).mockRejectedValueOnce(new ApiError('Sem rede', 0));
   await mount();
   expect((await getSession()).token).toBe('persistido');
-  await press('Tentar novamente');
   await press('Perfil');
   expect(api.profile).toHaveBeenCalledWith('persistido');
 });

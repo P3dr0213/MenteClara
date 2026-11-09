@@ -54,3 +54,7 @@ Fonte: https://www.postgresql.org/download/windows/
 
 A migration 002_humor_sessoes adiciona registros_humor (usuario_id, tipo, intensidade, descricao, criado_em) e sessoes. O setup agora aplica todas as migrations pendentes em ordem.
 Consulte STATUS-TASKS.md e ../backend/README.md para os fluxos e testes completos.
+
+## Sincronização e restauração
+
+A migration 007 adiciona estado de bem-estar associado ao usuário e identificadores de origem para reimportações idempotentes de backups. Não remove nem reescreve os registros já armazenados. `npm run db:setup` aplica a migration pendente depois de iniciar o PostgreSQL.

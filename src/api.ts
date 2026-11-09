@@ -17,6 +17,22 @@ export type DiaryEntry = {
   criado_em: string;
 };
 export type Period = 'week' | 'month';
+export type DataBackup = {
+  format: 'mente-clara-backup-v1';
+  exportedAt: string;
+  registrosHumor: Mood[];
+  registrosDiario: DiaryEntry[];
+  bemEstar?: Record<string, unknown>;
+};
+export type WellbeingSnapshot = {
+  reminderEnabled: boolean;
+  reminderTime: string;
+  completedActivities: string[];
+  goals: { id: string; title: string; target: number; progress: number }[];
+  points: number;
+  earnedBadges: string[];
+  updatedAt: string;
+};
 
 export const API_URL = resolveApiUrl(
   process.env.EXPO_PUBLIC_API_URL,
@@ -90,7 +106,7 @@ export const api = {
   logout: (token: string) => request<void>('/api/auth/logout', 'POST', token),
   saveMood: (
     token: string,
-    body: { tipo: string; intensidade: number; descricao?: string },
+    body: { tipo: string; intensidade: number; descricao?: string; clientId?: string },
   ) =>
     request<{ registro: Mood; message: string }>(
       '/api/mood/register',
@@ -104,7 +120,11 @@ export const api = {
       'GET',
       token,
     ),
-  diarySave: (token: string, body: { prompt: string; resposta: string }) =>
+  updateMood: (token: string, id: string, body: { tipo: string; intensidade: number; descricao?: string }) =>
+    request<{ registro: Mood; message: string }>(`/api/mood/${id}`, 'PUT', token, body),
+  deleteMood: (token: string, id: string) =>
+    request<void>(`/api/mood/${id}`, 'DELETE', token),
+  diarySave: (token: string, body: { prompt: string; resposta: string; clientId?: string }) =>
     request<{ registro: DiaryEntry; message: string }>(
       '/api/diary/register',
       'POST',
@@ -123,4 +143,14 @@ export const api = {
     request<void>('/api/diary/' + id, 'DELETE', token),
   diaryGet: (token: string, id: string) =>
     request<{ registro: DiaryEntry }>('/api/diary/' + id, 'GET', token),
+  exportData: (token: string) =>
+    request<DataBackup>('/api/data/export', 'GET', token),
+  restoreData: (token: string, backup: DataBackup) =>
+    request<{ message: string; registrosImportados: number; registrosIgnorados: number }>(
+      '/api/data/restore', 'POST', token, backup,
+    ),
+  getWellbeing: (token: string) =>
+    request<{ state: WellbeingSnapshot }>('/api/user/wellbeing', 'GET', token),
+  saveWellbeing: (token: string, state: Omit<WellbeingSnapshot, 'updatedAt'>) =>
+    request<{ state: WellbeingSnapshot }>('/api/user/wellbeing', 'PUT', token, state),
 };

@@ -14,10 +14,17 @@ Para USB, configure `EXPO_PUBLIC_API_URL=http://127.0.0.1:3001` no `.env` da rai
 - POST /api/auth/logout: invalida a sessao atual no banco.
 - POST /api/mood/register: tipo, intensidade (1 a 5), descricao opcional (ate 280 caracteres).
 - GET /api/mood/:id: consulta somente registro pertencente ao usuario.
+- PUT /api/mood/:id: atualiza registro de humor do proprietario.
+- DELETE /api/mood/:id: exclui registro de humor do proprietario.
 - GET /api/mood/history?period=week ou month: ultimos 7 ou 30 dias corridos, respectivamente.
+- GET /api/user/wellbeing e PUT /api/user/wellbeing: consulta e sincroniza metas, atividades concluidas, pontos, conquistas e preferencia de lembrete da conta.
 - GET /health: verifica disponibilidade do banco.
 - PUT /api/diary/:id: atualiza prompt opcional e resposta da entrada do usuario autenticado.
 - DELETE /api/diary/:id: exclui permanentemente a entrada do usuario autenticado.
+- GET /api/data/export: exporta todos os registros de humor e diário da conta autenticada em JSON.
+- POST /api/data/restore: restaura um backup `mente-clara-backup-v1` de forma transacional, adicionando até 1.000 registros à conta atual.
+
+Os registros offline enviam um UUID `clientId` estável junto ao cadastro. O backend usa esse UUID como identificador do registro: uma repetição do pedido pelo mesmo usuário devolve o registro já salvo; colisões com registros de outra conta retornam conflito sem revelar os dados. Backups preservam um identificador de origem por usuário para ignorar reimportações repetidas.
 
 Rotas privadas exigem Authorization: Bearer TOKEN.
 JWT usa segredo aleatorio local, assinatura HS256, issuer/audience e validade de 7 dias. As sessoes sao verificadas no banco e revogadas no logout.
@@ -28,7 +35,7 @@ O grafico mostra a intensidade media diaria na data local do celular, nao uma po
 
 ## Banco e dados
 
-A migration 002_humor_sessoes cria o relacionamento entre humor e usuarios e a tabela de sessoes.
+A migration 002_humor_sessoes cria o relacionamento entre humor e usuarios e a tabela de sessoes. A migration 007_bem_estar_sync adiciona chaves de origem para importação idempotente e estado JSON de bem-estar por usuário. O setup aplica todas as migrations pendentes em ordem.
 Se existirem registros antigos sem dono, a migration interrompe sem apagar dados; eles precisam de uma associacao explicita antes de continuar.
 As credenciais ficam em backend/.env (ignorado pelo Git). Nao use os arquivos de .local em um repositorio publico.
 Dados existentes de usuarios sao preservados.

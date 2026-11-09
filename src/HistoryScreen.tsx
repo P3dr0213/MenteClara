@@ -2,6 +2,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,14 +11,19 @@ import {
 } from 'react-native';
 import { api, Mood, Period } from './api';
 import { dailyIntensity } from './history';
+import { getPending, pendingMood, removePendingRecord } from './offlineQueue';
 
 export default function HistoryScreen({
   token,
+  userId = '',
   onBack,
+  onEdit = () => undefined,
   darkMode = false,
 }: {
   token: string;
+  userId?: string;
   onBack: () => void;
+  onEdit?: (entry: Mood) => void;
   darkMode?: boolean;
 }) {
   const [period, setPeriod] = useState<Period>('week');
@@ -50,16 +56,21 @@ export default function HistoryScreen({
     setLoading(true);
     setError('');
     setEntries([]);
-    api
-      .history(token, period)
-      .then(result => {
+    Promise.all([api.history(token, period), getPending(userId)])
+      .then(([result, pending]) => {
         if (active) {
-          setEntries(result.registros);
+          const offline = pending.map(pendingMood).filter((entry): entry is Mood => entry !== null);
+          const cutoff = Date.now() - (period === 'week' ? 7 : 30) * 24 * 60 * 60 * 1000;
+          const recentOffline = offline.filter(entry => new Date(entry.criado_em).getTime() >= cutoff);
+          setEntries([...recentOffline, ...result.registros].sort((a, b) => b.criado_em.localeCompare(a.criado_em)));
         }
       })
-      .catch(reason => {
+      .catch(async reason => {
         if (active) {
-          setError(reason.message);
+          const pending = await getPending(userId).catch(() => []);
+          const offline = pending.map(pendingMood).filter((entry): entry is Mood => entry !== null);
+          if (offline.length) setEntries(offline);
+          else setError(reason.message);
         }
       })
       .finally(() => {
@@ -70,8 +81,22 @@ export default function HistoryScreen({
     return () => {
       active = false;
     };
-  }, [token, period, reload]);
+  }, [token, userId, period, reload]);
   const points = dailyIntensity(entries);
+  function confirmDelete(entry: Mood) {
+    Alert.alert('Excluir registro?', 'Esta ação não pode ser desfeita.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir', style: 'destructive', onPress: async () => {
+        try {
+          const wasPending = await removePendingRecord(userId, entry.id);
+          if (!wasPending) await api.deleteMood(token, entry.id);
+          setEntries(current => current.filter(item => item.id !== entry.id));
+        } catch (reason) {
+          Alert.alert('Não foi possível excluir', reason instanceof Error ? reason.message : 'Tente novamente.');
+        }
+      } },
+    ]);
+  }
   return (
     <SafeAreaView
       style={[styles.screen, { backgroundColor: theme.background }]}
@@ -201,6 +226,14 @@ export default function HistoryScreen({
                     {entry.descricao}
                   </Text>
                 ) : null}
+                <View style={styles.actions}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Editar registro ${entry.tipo}`} onPress={() => onEdit(entry)} style={[styles.actionButton, { backgroundColor: theme.accentSoft }]}>
+                    <Text style={{ color: theme.accent, fontWeight: '700' }}>Editar</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Excluir registro ${entry.tipo}`} onPress={() => confirmDelete(entry)} style={[styles.actionButton, { backgroundColor: theme.accentSoft }]}>
+                    <Text style={{ color: theme.accent, fontWeight: '700' }}>Excluir</Text>
+                  </Pressable>
+                </View>
               </View>
             ))}
           </>
@@ -270,4 +303,6 @@ const styles = StyleSheet.create({
   },
   mood: { fontWeight: '700', fontSize: 16, color: '#1f2d2d', marginBottom: 6 },
   description: { marginTop: 8, color: '#3e4d4d' },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  actionButton: { minHeight: 44, flex: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
 });

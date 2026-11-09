@@ -9,6 +9,12 @@ Implementacoes concluidas no codigo:
 O setup aplica a migration 002_humor_sessoes, preservando a 001 original de usuarios.
 Consulte backend/README.md para comandos e limites da verificacao. Testes automatizados nao substituem homologacao completa da interface no celular.
 
+## Recursos complementares — Sprints 2 e 3
+
+- `007_bem_estar_sync`: estado de metas, atividades, pontos e preferências sincronizado por conta; identificadores de origem para evitar duplicação em restaurações.
+- API autenticada: leitura e gravação do estado de bem-estar; exportação e restauração transacional; operações CRUD de registros de humor; `clientId` idempotente para novos registros offline.
+- A aplicação mantém uma fila local limitada no SecureStore e tenta sincronizar após mudança de conectividade, retorno ao app e ação manual.
+
 ## Verificacao desta entrega
 
 - 21 testes Jest aprovados (8 suites).

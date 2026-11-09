@@ -1,6 +1,6 @@
 # Mente Clara
 
-Aplicativo móvel de acompanhamento de bem-estar desenvolvido com React Native, TypeScript e Expo SDK 57. O projeto inclui autenticação, perfil, registro e histórico de humor, diário, exercício guiado de respiração, tema claro/escuro e recursos de ajuda.
+Aplicativo móvel de acompanhamento de bem-estar desenvolvido com React Native, TypeScript e Expo SDK 57. O projeto inclui autenticação, perfil, registro e histórico de humor, diário, autoavaliação de bem-estar, exercício guiado de respiração, tema claro/escuro e recursos de ajuda.
 
 > O Mente Clara é uma ferramenta de apoio ao bem-estar. Ele não substitui atendimento médico, psicológico ou serviços de emergência.
 
@@ -209,6 +209,15 @@ O backlog consolidado está em [docs/Backlog_MC_Sprints.xlsx](docs/Backlog_MC_Sp
 - prioridade MoSCoW, complexidade e dependências;
 - IA, comunidade e integrações avançadas fora do escopo atual.
 
+As próximas entregas estão resumidas abaixo, seguindo os IDs, as prioridades e as dependências da planilha. As sprints representam a sequência planejada; datas e responsáveis ainda não estão definidos. Uma história só deve ser considerada concluída após a verificação dos seus critérios de aceite.
+
+| Entrega | Objetivo | Histórias |
+| --- | --- | --- |
+| Fechamento da Sprint 1 | Validar em dispositivo os fluxos essenciais, incluindo a autoavaliação implementada. | US-001 a US-005, US-007 a US-009 |
+| Sprint 2 | Ampliar a rotina de autocuidado, a acessibilidade e a personalização. | US-006, US-010 a US-016 |
+| Sprint 3 | Permitir maior controle dos dados e aprofundar o acompanhamento. | US-017 a US-021 |
+| Backlog futuro | Avaliar IA, comunidade e integrações após definir os requisitos específicos. | US-022 a US-024 |
+
 ## Backlog da Sprint 1
 
 A Sprint 1 concentra as funcionalidades essenciais para a primeira versão funcional do **Mente Clara**, priorizando autenticação, acompanhamento emocional, registro de diário, exercícios de respiração e acesso a informações de apoio.
@@ -243,6 +252,80 @@ Os **Story Points** representam uma estimativa relativa do esforço necessário 
 | 8 | Alto |
 
 > Os critérios de aceite detalhados de cada história estão disponíveis na aba **Backlog Simplificado** da planilha do projeto. O planejamento e a distribuição das histórias nas próximas entregas podem ser consultados na aba **Sprints**.
+
+### Próxima entrega: fechamento da Sprint 1
+
+O código já contém os fluxos de autenticação, perfil, registro e histórico de humor, respiração, ajuda, diário e autoavaliação. Essa disponibilidade não substitui a validação da entrega em dispositivo.
+
+- [x] **US-008 — Implementação da autoavaliação:** questionário com quatro perguntas, validação de preenchimento, resumo das respostas, revisão e opção de refazer. A tela informa que não é diagnóstico nem teste clínico validado.
+- [x] **US-008 — Fluxo em dispositivo Android:** conferidos o acesso pelo Início, a seleção das quatro respostas e a exibição do resumo.
+- [ ] **US-008 — Acessibilidade em dispositivo:** conferir a navegação com leitor de tela e fontes ampliadas.
+- [ ] **US-001 e US-002 — Conta e perfil:** validar cadastro, login, restauração da sessão, atualização do perfil e logout no celular, incluindo falhas de conexão e sessão expirada.
+- [ ] **US-003 e US-004 — Humor e histórico:** confirmar persistência dos registros e consulta em lista e gráfico nos períodos semanal e mensal.
+- [ ] **US-005 e US-007 — Respiração e ajuda:** validar o ciclo completo do exercício e o acesso às informações e contatos de apoio.
+- [ ] **US-009 — Diário:** validar criação, consulta, edição e exclusão, garantindo que cada conta acesse apenas seus registros.
+
+Para acessar a autoavaliação, entre na conta e abra **Início → Autoavaliação de bem-estar**. O resultado resume as percepções sobre descanso, energia, tempo para si e conexão com outras pessoas, sem pontuação clínica. As respostas ficam somente na tela e são descartadas ao sair; esta entrega não inclui histórico de autoavaliações.
+
+## Sprint 2 — estabilidade e bem-estar
+
+Objetivo: ampliar os recursos de uso recorrente e concluir os requisitos de acessibilidade, conteúdo e personalização. A prioridade segue a classificação MoSCoW da planilha: **Must** (essencial), **Should** (importante), **Could** (desejável) e **Won't** (fora do escopo atual).
+
+| ID | Entrega | Critério de aceite resumido | Prioridade | Dependências |
+| --- | --- | --- | --- | --- |
+| US-006 | Lembretes de humor e exercícios | Configurar horário, ativar/desativar e receber a notificação no horário escolhido. | Should | US-003 ou US-005 |
+| US-010 | Acessibilidade das telas principais | Verificar rótulos acessíveis, contraste e tamanho das áreas de interação no Android. | Must | Todas as telas principais |
+| US-011 | Conteúdos educativos | Listar conteúdos de bem-estar e permitir abrir cada item para leitura. | Should | — |
+| US-012 | Preferência de tema | Aplicar tema claro/escuro em todas as telas e manter a escolha após reiniciar o aplicativo. | Could | — |
+| US-013 | Autocuidado e gratidão | Registrar práticas, consultar registros anteriores e marcar atividades concluídas. | Should | US-001 |
+| US-014 | Metas de bem-estar | Criar metas, registrar progresso e consultar seu andamento. | Should | US-003, US-005 |
+| US-015 | Biblioteca de relaxamento e mindfulness | Listar diferentes exercícios e permitir iniciar e finalizar cada prática. | Should | US-005 |
+| US-016 | Pontos e conquistas | Atribuir pontos/conquistas às atividades elegíveis e salvar o progresso. | Could | US-003, US-005 |
+
+Tema claro/escuro, conteúdos, práticas, metas, conquistas e preferências de lembrete estão implementados. O estado de bem-estar agora fica associado à conta no backend e no aparelho, com reconciliação por data de atualização. O tema continua salvo no SecureStore local. Os rótulos e alvos das telas foram ampliados; leitor de tela, escala ampliada e contraste ainda precisam de validação manual em Android e iOS.
+
+### Funcionalidades da Sprint 2 disponíveis no código
+
+A área **Bem-estar** reúne lembretes diários, conteúdos educativos, práticas de autocuidado e relaxamento, metas e pontos/conquistas. Os lembretes usam notificações locais no aparelho; cada aparelho exige permissão própria. A configuração é sincronizada na conta e um agendamento local é recriado quando a permissão está disponível. Se o usuário negar a permissão, o app informa como habilitá-la e não remove lembretes existentes durante a tentativa.
+
+## Sprint 3 — dados, sincronização e entrega
+
+Objetivo: ampliar o acesso aos dados e os recursos de acompanhamento, respeitando as dependências das entregas anteriores.
+
+| ID | Entrega | Critério de aceite resumido | Prioridade | Dependências |
+| --- | --- | --- | --- | --- |
+| US-017 | Exportação de registros | Gerar um arquivo com os registros selecionados pelo usuário. | Could | US-003, US-009 |
+| US-018 | Uso offline e sincronização | Criar registros básicos sem conexão e sincronizá-los quando a internet retornar. | Could | US-003, US-005 |
+| US-019 | Backup e restauração | Criar e restaurar uma cópia dos dados sem corromper os registros. | Could | US-001, US-017 |
+| US-020 | Exercícios estruturados de reflexão (TCC) | Apresentar etapas definidas e permitir salvar o resultado da atividade. | Could | US-009 |
+| US-021 | Relatórios de progresso | Apresentar um resumo compreensível com dados reais, sem fazer diagnóstico. | Could | US-004, US-014 |
+
+### Recursos da Sprint 3 implementados no código
+
+- **Exportação e backup:** a API autenticada reúne registros de humor e diário; o app inclui metas, preferências, conquistas e registros pendentes em um arquivo JSON real. O arquivo pode ser compartilhado pelo sistema. A restauração lê um arquivo JSON, mostra a quantidade de registros antes de confirmar, mantém os dados atuais e ignora registros já importados. Limite: 1.000 entradas por arquivo.
+- **Uso offline e sincronização:** novos registros de humor e diário entram na fila segura local quando a API não responde. O envio é tentado na inicialização, no retorno ao app, quando a conectividade volta e por ação manual em **Início → Progresso, dados e reflexão → Sincronizar agora**. Cada envio reutiliza um UUID para evitar duplicação quando a resposta da API se perde. A fila respeita o limite do SecureStore e informa quando não comporta um registro.
+- **Metas e conquistas:** estado de bem-estar salvo localmente e sincronizado no backend, protegido por usuário. O servidor valida atividades e deriva os pontos das atividades concluídas, sem aceitar pontuação arbitrária.
+- **Reflexão estruturada:** o exercício guiado apresenta etapas para situação, pensamento, emoção, evidências e próximo passo; a resposta é salva no diário.
+- **Relatórios:** a tela de Progresso apresenta contagens e intensidade média calculadas a partir dos registros reais; o histórico exibe o gráfico semanal e mensal. O app não interpreta a intensidade como humor positivo/negativo nem faz diagnóstico.
+
+O catálogo de profissionais está preparado com estado vazio e explica que o projeto não recebeu uma fonte verificável. Não há catálogo, agendamento ou atendimento. A tela de sugestões de apoio usa conteúdo fixo, sem modelo de IA; análise de sentimentos não está ativa. Comunidade, denúncia/moderação e integrações externas permanecem pendentes por falta de fonte de dados, regras de moderação e APIs/requisitos definidos.
+
+Antes da entrega final, valide notificações e compartilhamento/restauração de arquivos em dispositivo físico. Os testes automatizados e as checagens de build/typecheck são registrados abaixo apenas após sua execução neste ambiente.
+
+### Backlog futuro — fora do escopo atual
+
+| ID | Possibilidade | Condição para planejamento |
+| --- | --- | --- |
+| US-022 | Insights com IA e análise de padrões | Dispor de histórico suficiente, validar o modelo e comunicar suas limitações. |
+| US-023 | Comunidade e espaços de apoio | Definir anonimato, denúncias, moderação e proteção de dados. |
+| US-024 | Integrações com serviços e dispositivos | Definir APIs, permissões, privacidade e estratégia de sincronização. |
+
+### Critérios para concluir cada entrega
+
+- Verificar os critérios de aceite das histórias incluídas na sprint.
+- Executar as verificações da seção **Testes e verificações** e, para mudanças na API ou persistência, `npm run api:test` com o PostgreSQL local ativo.
+- Validar os fluxos alterados em dispositivo, incluindo estados vazios, carregamento e mensagens de erro aplicáveis.
+- Atualizar este README e a planilha quando houver mudanças de escopo ou conclusão de histórias.
 
 ## Documentação adicional
 

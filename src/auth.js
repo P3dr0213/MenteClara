@@ -35,9 +35,11 @@ function validateProfileUpdateForm(input = {}) {
 function validateRegisterForm(input = {}) {
   const result = validateProfileUpdateForm(input);
   const password = text(input?.password);
-  if (!PASSWORD_REGEX.test(password) || passwordBytes(password) > 72) {
+  if (passwordBytes(password) > 72) {
+    result.errors.password = 'Senha muito longa. Use uma senha mais curta.';
+  } else if (!PASSWORD_REGEX.test(password)) {
     result.errors.password =
-      'Senha deve ter no mínimo 8 caracteres com maiúscula, minúscula, número e símbolo, e no máximo 72 bytes.';
+      'Senha deve ter no mínimo 8 caracteres com maiúscula, minúscula, número e símbolo.';
   }
   return {
     ...result,
@@ -52,8 +54,10 @@ function validateLoginForm(input = {}) {
   if (!email || email.length > 254 || !EMAIL_REGEX.test(email)) {
     errors.email = 'Informe um email válido.';
   }
-  if (!password || passwordBytes(password) > 72) {
-    errors.password = 'Senha é obrigatória e deve ter no máximo 72 bytes.';
+  if (!password) {
+    errors.password = 'Senha é obrigatória.';
+  } else if (passwordBytes(password) > 72) {
+    errors.password = 'Senha muito longa. Use uma senha mais curta.';
   }
   return {
     valid: Object.keys(errors).length === 0,
