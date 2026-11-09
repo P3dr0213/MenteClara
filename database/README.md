@@ -1,60 +1,36 @@
-# Banco Mente Clara (TASK-001)
+# Banco de dados do Mente Clara
 
-PostgreSQL 18.6 local em 127.0.0.1:5432. Banco: mente_clara.
-A API futura usa o papel mente_clara_app, com permissoes de leitura/escrita na tabela usuarios, sem superusuario ou permissao de criar tabelas.
+O PostgreSQL é iniciado pelo Docker Compose e fica acessível apenas no próprio computador. O banco se chama `mente_clara`; a porta publicada padrão é `5433`. Uma configuração local pode usar outra porta quando houver conflito. Confirme o estado com `npm run db:status`.
 
-## Comandos na raiz do projeto
+## Comandos
 
-- npm run db:start — inicia o banco em segundo plano.
-- npm run db:stop — encerra o banco de forma controlada.
-- npm run db:status — verifica o processo.
-- npm run db:test — testa o esquema e as permissoes, revertendo os dados de teste.
-- npm run db:console — abre psql como usuario da API; use \\q para sair.
-- npm run db:setup — inicializa o cluster e aplica a migration caso ainda nao exista.
+Execute na raiz do projeto:
 
-Depois de reiniciar o computador, execute npm run db:start. Nao foi instalado servico automatico do Windows.
+| Comando | Finalidade |
+| --- | --- |
+| `npm run db:setup` | Inicia o banco, cria/atualiza credenciais locais e aplica migrations pendentes. |
+| `npm run db:start` | Inicia o container PostgreSQL existente. |
+| `npm run db:stop` | Para o container sem remover os dados. |
+| `npm run db:status` | Mostra o estado do container. |
+| `npm run db:console` | Abre o console SQL do banco. |
+| `npm run db:test` | Verifica o esquema e as permissões do papel da API. |
 
-## Arquivos
+O setup é idempotente: não repete migrations já registradas e preserva os dados existentes. Os arquivos `backend/.env`, `.local/` e `.local-logs/` guardam configuração ou dados locais e não devem ser enviados ao Git.
 
-- migrations/001_create_usuarios.sql: estrutura reproduzivel da tabela e trigger.
-- tests/usuarios.sql: verificacoes transacionais sem dados persistentes.
-- ../backend/.env: conexao local da futura API, ignorada pelo Git.
-- ../backend/.env.example: modelo sem credenciais.
-- ../.local/postgres-data: dados persistentes do banco; nao apagar.
-- ../.local/postgres-credentials.json: credenciais locais administrativas; nao compartilhar.
-- ../.local/postgresql-18.6: binarios locais.
-- ../.local/postgres.log: log do servidor.
+## Estrutura e migrations
 
-## Tabela usuarios
+- `001_create_usuarios.sql`: contas, validações e identificador UUID.
+- `002_humor_sessoes.sql`: registros de humor e sessões revogáveis.
+- `003_diario.sql` a `006_diario_resposta_sem_minimo.sql`: diário emocional e ajustes do campo de resposta.
+- `007_bem_estar_sync.sql`: estado de bem-estar por usuário e identificadores de origem para sincronização/restauração.
+- `008_amizades.sql`: código aleatório de amizade e tabela de conexões entre contas.
 
-| Campo | Tipo |
-|---|---|
-| id | UUID gerado automaticamente, chave primaria |
-| nome | VARCHAR(120), obrigatorio e sem espacos nas extremidades |
-| email | VARCHAR(254), obrigatorio, unico sem distinguir maiusculas |
-| senha_hash | TEXT obrigatorio; hash gerado pela futura API |
-| criado_em | TIMESTAMPTZ automatico |
-| atualizado_em | TIMESTAMPTZ atualizado por trigger |
+A tabela `amizades` grava a conexão nos dois sentidos. O identificador público de amizade é separado do ID interno da conta. A API não expõe e-mail ou registros emocionais na lista de amizades.
 
-O banco rejeita nome vazio, email sem estrutura basica e hash vazio. Validacao completa de email, politica de senha e geracao de hash pertencem a API (proximas tasks). Cadastro, login e hash de senha estao implementados na API; veja ../backend/README.md.
+## Acesso e segurança
 
-A conexao fica restrita ao computador (127.0.0.1) e usa autenticacao SCRAM. O React Native devera chamar a API; nunca receber as credenciais do PostgreSQL.
+A API conecta ao PostgreSQL com o papel `mente_clara_app`, sem superusuário nem permissão para criar tabelas. O React Native nunca recebe as credenciais do banco; todas as operações passam pela API autenticada.
 
-## Recriar em outro computador Windows
+Se houver registros antigos sem usuário associado, uma migration que exija essa relação interrompe a execução sem apagar dados. Associe explicitamente os registros antes de reaplicar o setup.
 
-Baixe os binarios Windows x64 do PostgreSQL 18.6 pela pagina oficial da EDB:
-https://www.enterprisedb.com/download-postgresql-binaries
-Extraia para .local/postgresql-18.6, de modo que pgsql/bin/pg_ctl.exe esteja dentro dela.
-Execute npm run db:setup e npm run db:test.
-O setup nao apaga dados e registra a migration aplicada em schema_migrations.
-
-Fonte: https://www.postgresql.org/download/windows/
-
-## US-001 a US-004
-
-A migration 002_humor_sessoes adiciona registros_humor (usuario_id, tipo, intensidade, descricao, criado_em) e sessoes. O setup agora aplica todas as migrations pendentes em ordem.
-Consulte STATUS-TASKS.md e ../backend/README.md para os fluxos e testes completos.
-
-## Sincronização e restauração
-
-A migration 007 adiciona estado de bem-estar associado ao usuário e identificadores de origem para reimportações idempotentes de backups. Não remove nem reescreve os registros já armazenados. `npm run db:setup` aplica a migration pendente depois de iniciar o PostgreSQL.
+Para os endpoints e as verificações da API, consulte [backend/README.md](../backend/README.md). O estado das tarefas de banco anteriores está em [STATUS-TASKS.md](STATUS-TASKS.md).

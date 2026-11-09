@@ -41,6 +41,7 @@ import HistoryScreen from './src/HistoryScreen';
 import AssessmentScreen from './src/AssessmentScreen';
 import SprintTwoScreen from './src/SprintTwoScreen';
 import SprintThreeScreen from './src/SprintThreeScreen';
+import FriendsScreen from './src/FriendsScreen';
 import { createClientId, getPending, pendingDiary, queueRecord, syncPending, updatePendingMood } from './src/offlineQueue';
 import { syncWellbeing } from './src/wellbeing';
 
@@ -49,6 +50,7 @@ type Screen =
   | 'cadastro'
   | 'home'
   | 'perfil'
+  | 'amizades'
   | 'editarPerfil'
   | 'humor'
   | 'historico'
@@ -64,7 +66,13 @@ type Screen =
   | 'emergencia'
   | 'profissionais'
   | 'chatIa';
-const moods = ['triste', 'ansioso', 'feliz', 'calmo', 'motivado'];
+const moodChoices = [
+  { key: 'triste', label: 'Triste', emoji: '😞', light: '#F8ECEF', dark: '#382B32', tone: '#9C5968', darkTone: '#E7B2BE' },
+  { key: 'ansioso', label: 'Ansioso', emoji: '😟', light: '#F2EEF8', dark: '#332E3D', tone: '#725C95', darkTone: '#C8B6E4' },
+  { key: 'calmo', label: 'Calmo', emoji: '😐', light: '#EDF4F1', dark: '#283833', tone: '#4D7969', darkTone: '#A6D1C0' },
+  { key: 'feliz', label: 'Feliz', emoji: '🙂', light: '#FBF3DF', dark: '#3B3528', tone: '#927538', darkTone: '#E6CF92' },
+  { key: 'motivado', label: 'Motivado', emoji: '😄', light: '#EAF5ED', dark: '#29382D', tone: '#4F7B59', darkTone: '#AED5B5' },
+] as const;
 const intensityLabels = ['Muito baixa', 'Baixa', 'Média', 'Alta', 'Muito alta'];
 const breathingPhases = [
   {
@@ -103,7 +111,7 @@ function formatBreathingTimer(value: number) {
 }
 
 function MainApp() {
-  const [screen, setScreen] = useState<Screen>('humor');
+  const [screen, setScreen] = useState<Screen>('home');
   const [session, setSession] = useState<Session | null>(null);
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
   const [booting, setBooting] = useState(true);
@@ -237,7 +245,7 @@ function MainApp() {
       if (stored) {
         const result = await api.profile(stored.token);
         await acceptSession({ token: stored.token, user: result.user });
-        setScreen('humor');
+        setScreen('home');
       }
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -580,36 +588,39 @@ function MainApp() {
   const isDarkMode = themeMode === 'dark';
   const theme = isDarkMode
     ? {
-        background: '#101827',
-        surface: '#1f2937',
-        surfaceAlt: '#0f172a',
-        text: '#f3f4f6',
-        textMuted: '#cbd5e1',
-        border: '#334155',
-        accent: '#3fbf9f',
-        accentSoft: '#1f3b35',
-        danger: '#ef4444',
-        tabBackground: '#111827',
-        tabInactive: '#94a3b8',
+        background: '#111A18',
+        surface: '#1C2925',
+        surfaceAlt: '#233830',
+        text: '#F1F5F2',
+        textMuted: '#B5C4BD',
+        border: '#34473F',
+        accent: '#75C7A8',
+        accentSoft: '#25443A',
+        danger: '#F0A6A0',
+        dangerSoft: '#382825',
+        tabBackground: '#17221F',
+        tabInactive: '#9AADA4',
       }
     : {
-        background: '#f3f5f7',
+        background: '#F5F7F4',
         surface: '#ffffff',
-        surfaceAlt: '#edf9f4',
-        text: '#1f2d2d',
-        textMuted: '#5d6668',
-        border: '#dfe8eb',
-        accent: '#2d7a67',
-        accentSoft: '#eaf8f2',
-        danger: '#d93025',
+        surfaceAlt: '#EDF4F0',
+        text: '#24332F',
+        textMuted: '#65746F',
+        border: '#E0E8E2',
+        accent: '#2F7563',
+        accentSoft: '#E2F0E9',
+        danger: '#B65A51',
+        dangerSoft: '#F8ECEA',
         tabBackground: '#ffffff',
-        tabInactive: '#586b6f',
+        tabInactive: '#788780',
       };
   const button = (label: string, onPress: () => void, secondary = false) => (
     <Pressable
       accessibilityRole="button"
       disabled={loading}
-      style={[
+      accessibilityState={{ disabled: loading }}
+      style={({ pressed }) => [
         secondary ? styles.secondaryButton : styles.button,
         secondary
           ? {
@@ -617,8 +628,9 @@ function MainApp() {
               borderColor: theme.border,
               borderWidth: 1,
             }
-          : { backgroundColor: theme.accent },
+          : { backgroundColor: theme.accent, borderColor: theme.accent },
         loading && styles.buttonDisabled,
+        pressed && !loading && styles.buttonPressed,
       ]}
       onPress={onPress}
     >
@@ -790,11 +802,11 @@ function MainApp() {
   ].includes(screen);
 
   const quickMoodOptions = [
-    { key: 'triste', label: 'Muito mal', emoji: '😞' },
-    { key: 'ansioso', label: 'Mal', emoji: '😕' },
-    { key: 'calmo', label: 'Normal', emoji: '😐' },
-    { key: 'feliz', label: 'Bem', emoji: '🙂' },
-    { key: 'motivado', label: 'Muito bem', emoji: '😄' },
+    { key: 'triste', label: 'Triste', emoji: '😞' },
+    { key: 'ansioso', label: 'Ansioso', emoji: '😟' },
+    { key: 'calmo', label: 'Calmo', emoji: '😐' },
+    { key: 'feliz', label: 'Feliz', emoji: '🙂' },
+    { key: 'motivado', label: 'Motivado', emoji: '😄' },
   ] as const;
 
   const moodMeta: Record<string, { label: string; emoji: string }> = {
@@ -843,47 +855,63 @@ function MainApp() {
       {(
         [
           { key: 'home', icon: '⌂', label: 'Início' },
-          { key: 'humor', icon: '●', label: 'Humor' },
+          { key: 'humor', icon: '＋', label: 'Registrar' },
           { key: 'historico', icon: '▥', label: 'Histórico' },
           { key: 'bemestar', icon: '✿', label: 'Bem-estar' },
-          { key: 'respiracao', icon: '◌', label: 'Respirar' },
-          { key: 'diario', icon: '✎', label: 'Diário' },
           { key: 'perfil', icon: '♙', label: 'Perfil' },
         ] as const
-      ).map(({ key, icon, label }) => (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={label}
-          key={key}
-          disabled={loading}
-          onPress={() => setScreen(key)}
-          style={[
-            screen === key ? styles.tabItemActive : styles.tabItem,
-            screen === key && { backgroundColor: theme.accentSoft },
-          ]}
-        >
-          <Text
-            style={[
-              screen === key ? styles.tabTextActive : styles.tabText,
-              { color: screen === key ? theme.accent : theme.tabInactive },
+      ).map(({ key, icon, label }) => {
+        const selected = screen === key || (key === 'bemestar' && screen === 'respiracao') ||
+          (key === 'home' && screen.startsWith('diario'));
+        return (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ selected }}
+            key={key}
+            disabled={loading}
+            onPress={() => setScreen(key)}
+            style={({ pressed }) => [
+              selected ? styles.tabItemActive : styles.tabItem,
+              selected && { backgroundColor: theme.accentSoft },
+              pressed && styles.tabItemPressed,
             ]}
           >
-            {icon}
-          </Text>
-          <Text
-            numberOfLines={1}
-            style={[
-              screen === key ? styles.tabLabelActive : styles.tabLabel,
-              { color: screen === key ? theme.accent : theme.tabInactive },
-            ]}
-          >
-            {label}
-          </Text>
-        </Pressable>
-      ))}
+            <Text
+              style={[
+                selected ? styles.tabTextActive : styles.tabText,
+                { color: selected ? theme.accent : theme.tabInactive },
+              ]}
+            >
+              {icon}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                selected ? styles.tabLabelActive : styles.tabLabel,
+                { color: selected ? theme.accent : theme.tabInactive },
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 
+  if (screen === 'amizades') {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <FriendsScreen
+          token={session.token}
+          darkMode={isDarkMode}
+          onBack={() => setScreen('perfil')}
+        />
+        {tabs}
+      </SafeAreaView>
+    );
+  }
   if (screen === 'autoavaliacao') {
     return (
       <AssessmentScreen
@@ -1534,7 +1562,18 @@ function MainApp() {
           </View>
 
           {button('Ligar para CVV', () => Linking.openURL('tel:188'))}
-          {button('Sugestões de apoio', () => setScreen('chatIa'), true)}
+          <Text style={[styles.emergencyText, { color: theme.textMuted, marginBottom: 8 }]}>
+            Se preferir conversar com uma IA, você pode abrir o ChatGPT. Ele não substitui atendimento profissional nem serviços de emergência.
+          </Text>
+          {button(
+            'Conversar com IA',
+            () => {
+              Linking.openURL('https://chatgpt.com/').catch(() =>
+                Alert.alert('Não foi possível abrir', 'Tente acessar https://chatgpt.com/ pelo navegador.'),
+              );
+            },
+            true,
+          )}
           {button('Consultar profissionais', () => setScreen('profissionais'), true)}
           {button(
             'Falar com apoio',
@@ -1683,6 +1722,7 @@ function MainApp() {
               </Text>
             </Pressable>
           </View>
+          {button('Amizades  ·  QR e lista', () => setScreen('amizades'), true)}
           {button('Editar perfil', () => {
             setProfileForm({
               name: session.user.nome,
@@ -1748,38 +1788,40 @@ function MainApp() {
     case 'humor':
       content = (
         <>
-          <Text style={[styles.title, { color: theme.text }]}>
-            {editingMoodId ? 'Editar registro de humor' : 'Registro de humor'}
+          <Text style={[styles.title, { color: theme.text }]}> 
+            {editingMoodId ? 'Editar check-in' : 'Seu check-in emocional'}
           </Text>
           <Text style={[styles.label, { color: theme.text }]}>
-            Como você está se sentindo?
+            Escolha a emoção mais próxima de agora
           </Text>
           <View style={styles.optionGrid}>
-            {moods.map(mood => (
-              <Pressable
-                key={mood}
-                accessibilityRole="button"
-                accessibilityState={{ selected: moodType === mood }}
-                disabled={loading}
-                onPress={() => setMoodType(mood)}
-                style={[
-                  styles.optionButton,
-                  {
-                    backgroundColor: theme.surface,
-                    borderColor: theme.border,
-                  },
-                  moodType === mood && styles.optionButtonSelected,
-                  moodType === mood && {
-                    backgroundColor: theme.accentSoft,
-                    borderColor: theme.accent,
-                  },
-                ]}
-              >
-                <Text style={[styles.optionText, { color: theme.text }]}>
-                  {mood.charAt(0).toUpperCase() + mood.slice(1)}
-                </Text>
-              </Pressable>
-            ))}
+            {moodChoices.map(option => {
+              const selected = moodType === option.key;
+              return (
+                <Pressable
+                  key={option.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  disabled={loading}
+                  onPress={() => setMoodType(option.key)}
+                  style={({ pressed }) => [
+                    styles.optionButton,
+                    {
+                      backgroundColor: isDarkMode ? option.dark : option.light,
+                      borderColor: isDarkMode ? option.dark + '88' : option.light,
+                    },
+                    selected && { backgroundColor: theme.accentSoft, borderColor: theme.accent },
+                    pressed && styles.tilePressed,
+                  ]}
+                >
+                  <Text style={styles.optionEmoji}>{option.emoji}</Text>
+                  <Text style={[styles.optionText, { color: selected ? theme.accent : isDarkMode ? option.darkTone : option.tone }]}>
+                    {option.label}
+                  </Text>
+                  {selected ? <Text style={[styles.optionCheck, { color: theme.accent }]}>✓</Text> : null}
+                </Pressable>
+              );
+            })}
           </View>
           <Text style={[styles.label, { color: theme.text }]}>Intensidade</Text>
           <View style={styles.sliderWrapper}>
@@ -1961,34 +2003,15 @@ function MainApp() {
               <Text style={[styles.homeBrand, { color: theme.text }]}>
                 Mente Clara
               </Text>
+              <Text style={[styles.homeBrandSubtitle, { color: theme.textMuted }]}>Seu espaço de bem-estar</Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              style={[
-                styles.homeSosButton,
-                {
-                  backgroundColor: isDarkMode ? '#3b1f1e' : '#fff1f0',
-                  borderColor: isDarkMode ? '#7f1d1d' : '#f5b5b0',
-                },
-              ]}
-              onPress={() => setScreen('emergencia')}
-            >
-              <Text
-                style={[
-                  styles.homeSosText,
-                  { color: isDarkMode ? '#fca5a5' : '#d93025' },
-                ]}
-              >
-                SOS
-              </Text>
-            </Pressable>
           </View>
 
           <Text style={[styles.homeGreeting, { color: theme.text }]}>
             Olá, {session.user.nome} 👋
           </Text>
           <Text style={[styles.homeSubGreeting, { color: theme.textMuted }]}>
-            Como você está se sentindo hoje?
+            Um espaço tranquilo para cuidar de você, no seu ritmo.
           </Text>
 
           <View
@@ -1998,14 +2021,18 @@ function MainApp() {
             ]}
           >
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
-              Humor de hoje
+              Como você está hoje?
             </Text>
             <View style={styles.moodQuickGrid}>
-              {quickMoodOptions.map(option => (
-                <Pressable
-                  key={option.key}
-                  accessibilityRole="button"
-                  onPress={async () => {
+              {quickMoodOptions.map(option => {
+                const tone = moodChoices.find(item => item.key === option.key)!;
+                const selected = moodType === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={async () => {
                     setMoodType(option.key);
                     const validation = validateMoodEntry({
                       tipo: option.key,
@@ -2043,33 +2070,22 @@ function MainApp() {
                         Alert.alert('Erro', message(error));
                       }
                     }
-                  }}
-                  style={[
-                    styles.moodQuickButton,
-                    {
-                      backgroundColor: theme.surfaceAlt,
-                      borderColor: theme.border,
-                    },
-                    moodType === option.key && styles.moodQuickButtonSelected,
-                    moodType === option.key && {
-                      backgroundColor: theme.accentSoft,
-                      borderColor: theme.accent,
-                    },
-                  ]}
-                >
-                  <Text style={styles.moodQuickEmoji}>{option.emoji}</Text>
-                  <Text
-                    style={[
-                      styles.moodQuickText,
-                      { color: theme.textMuted },
-                      moodType === option.key && styles.moodQuickTextSelected,
-                      moodType === option.key && { color: theme.accent },
+                    }}
+                    style={({ pressed }) => [
+                      styles.moodQuickButton,
+                      { backgroundColor: isDarkMode ? tone.dark : tone.light, borderColor: isDarkMode ? tone.dark + '88' : tone.light },
+                      selected && { backgroundColor: theme.accentSoft, borderColor: theme.accent },
+                      pressed && styles.tilePressed,
                     ]}
                   >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text style={styles.moodQuickEmoji}>{option.emoji}</Text>
+                    <Text style={[styles.moodQuickText, { color: selected ? theme.accent : isDarkMode ? tone.darkTone : tone.tone }]}>
+                      {option.label}
+                    </Text>
+                    {selected ? <Text style={[styles.moodQuickCheck, { color: theme.accent }]}>✓</Text> : null}
+                  </Pressable>
+                );
+              })}
             </View>
 
             <View style={styles.homeMoodSummaryRow}>
@@ -2207,10 +2223,15 @@ function MainApp() {
           <View style={styles.emergencyHeader}>
             <Pressable
               accessibilityRole="button"
-              style={styles.emergencyFab}
+              accessibilityLabel="Abrir ajuda e emergência"
+              style={({ pressed }) => [
+                styles.emergencyFab,
+                { backgroundColor: theme.dangerSoft, borderColor: theme.danger + '55' },
+                pressed && styles.emergencyFabPressed,
+              ]}
               onPress={() => setScreen('emergencia')}
             >
-              <Text style={styles.emergencyFabText}>SOS</Text>
+              <Text style={[styles.emergencyFabText, { color: theme.danger }]}>♡  Ajuda</Text>
             </Pressable>
           </View>
         ) : null}
@@ -2232,7 +2253,7 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f3f5f7',
+    backgroundColor: '#F5F7F4',
   },
   homeContainer: {
     flex: 1,
@@ -2327,26 +2348,26 @@ const styles = StyleSheet.create({
   },
   emergencyHeader: {
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   emergencyFab: {
-    backgroundColor: '#d93025',
-    borderRadius: 18,
-    width: 62,
-    height: 62,
+    backgroundColor: '#F8ECEA',
+    borderRadius: 999,
+    minHeight: 40,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#E9C7C3',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#d93025',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 5,
+  },
+  emergencyFabPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.97 }],
   },
   emergencyFabText: {
-    color: '#ffffff',
-    fontWeight: '800',
-    fontSize: 18,
-    letterSpacing: 0.7,
+    color: '#A64D47',
+    fontWeight: '700',
+    fontSize: 13,
   },
   emergencyCard: {
     backgroundColor: '#fff1f0',
@@ -2460,37 +2481,44 @@ const styles = StyleSheet.create({
   },
   profileContainer: {
     flexGrow: 1,
-    backgroundColor: '#f3f5f7',
-    padding: 24,
-    paddingBottom: 30,
+    backgroundColor: '#F5F7F4',
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 36,
   },
   moodContainer: {
     flexGrow: 1,
-    backgroundColor: '#f3f5f7',
-    padding: 24,
-    paddingBottom: 30,
+    backgroundColor: '#F5F7F4',
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 36,
   },
   label: {
     fontSize: 16,
     fontWeight: '700',
     color: '#1f2d2d',
-    marginBottom: 12,
-    marginTop: 8,
+    marginBottom: 8,
+    marginTop: 6,
   },
   optionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 8,
+    justifyContent: 'center',
+    gap: 9,
+    marginBottom: 14,
   },
   optionButton: {
+    width: '30.5%',
+    minHeight: 76,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 17,
     borderWidth: 1,
     borderColor: '#dfe8eb',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginRight: 8,
-    marginBottom: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   optionButtonSelected: {
     backgroundColor: '#dff4ed',
@@ -2498,7 +2526,23 @@ const styles = StyleSheet.create({
   },
   optionText: {
     color: '#2f3b3c',
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  optionEmoji: {
+    fontSize: 22,
+  },
+  optionCheck: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  tilePressed: {
+    opacity: 0.84,
+    transform: [{ scale: 0.97 }],
   },
   optionTextSelected: {
     color: '#1f8a68',
@@ -2549,7 +2593,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#dfe8eb',
-    minHeight: 120,
+    minHeight: 100,
     textAlignVertical: 'top',
     padding: 14,
     color: '#1f2d2d',
@@ -2557,79 +2601,99 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: '#2d7a67',
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#2d7a67',
+    minHeight: 56,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 18,
+    elevation: 2,
+    shadowColor: '#17483d',
+    shadowOpacity: 0.16,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
   },
   primaryButtonText: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   secondaryButton: {
-    marginTop: 14,
-    paddingVertical: 12,
+    minHeight: 50,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     alignItems: 'center',
-    borderRadius: 12,
+    justifyContent: 'center',
+    borderRadius: 15,
   },
   secondaryButtonText: {
     color: '#2f8d72',
+    fontSize: 15,
     fontWeight: '700',
   },
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e7eef1',
-    paddingTop: 5,
-    paddingBottom: 10,
-    paddingHorizontal: 4,
+    borderTopWidth: 0,
+    paddingTop: 7,
+    paddingBottom: 9,
+    paddingHorizontal: 8,
     justifyContent: 'space-around',
-    marginTop: -14,
-    minHeight: 68,
+    marginTop: 0,
+    minHeight: 76,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
     shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -3 },
+    elevation: 8,
   },
   tabItem: {
     flex: 1,
-    paddingVertical: 4,
+    paddingVertical: 5,
     alignItems: 'center',
-    borderRadius: 10,
-    minHeight: 50,
+    borderRadius: 15,
+    minHeight: 58,
     justifyContent: 'center',
   },
   tabItemActive: {
     flex: 1,
-    backgroundColor: '#eaf5f0',
-    paddingVertical: 4,
+    backgroundColor: '#E2F0E9',
+    paddingVertical: 5,
     alignItems: 'center',
-    borderRadius: 10,
-    minHeight: 50,
+    borderRadius: 15,
+    minHeight: 58,
     justifyContent: 'center',
+  },
+  tabItemPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.96 }],
   },
   tabText: {
     color: '#586b6f',
     fontWeight: '600',
-    fontSize: 17,
+    fontSize: 19,
   },
   tabTextActive: {
     color: '#1f8a68',
     fontWeight: '700',
-    fontSize: 17,
+    fontSize: 19,
   },
   tabLabel: {
     color: '#586b6f',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '600',
     marginTop: 1,
   },
   tabLabelActive: {
     color: '#1f8a68',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
     marginTop: 1,
   },
@@ -2640,9 +2704,15 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   homeBrand: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '800',
     color: '#1f2d2d',
+    letterSpacing: 0.2,
+  },
+  homeBrandSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+    letterSpacing: 0.2,
   },
   homeSosButton: {
     backgroundColor: '#fff1f0',
@@ -2659,20 +2729,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   homeGreeting: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 25,
+    fontWeight: '700',
     color: '#1f2d2d',
-    marginBottom: 4,
+    marginBottom: 5,
   },
   homeSubGreeting: {
     fontSize: 15,
     color: '#5d6668',
-    marginBottom: 18,
+    lineHeight: 22,
+    marginBottom: 20,
   },
   homeMoodCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 22,
-    padding: 18,
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#dfe8eb',
     marginBottom: 18,
@@ -2684,34 +2755,46 @@ const styles = StyleSheet.create({
   moodQuickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 6,
     marginTop: 8,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   moodQuickButton: {
-    width: '31%',
+    flexGrow: 1,
+    flexBasis: '17%',
+    minWidth: 47,
     backgroundColor: '#f4f7f8',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#e7edf0',
-    paddingVertical: 12,
+    minHeight: 68,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 6,
-    marginBottom: 8,
+    position: 'relative',
   },
   moodQuickButtonSelected: {
     backgroundColor: '#eaf8f2',
     borderColor: '#a7dfc8',
   },
   moodQuickEmoji: {
-    fontSize: 20,
-    marginBottom: 4,
+    fontSize: 21,
+    marginBottom: 3,
   },
   moodQuickText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#4d5d5f',
     fontWeight: '700',
     textAlign: 'center',
+  },
+  moodQuickCheck: {
+    position: 'absolute',
+    top: 3,
+    right: 6,
+    fontSize: 10,
+    fontWeight: '900',
   },
   moodQuickTextSelected: {
     color: '#1f8a68',
@@ -2735,8 +2818,8 @@ const styles = StyleSheet.create({
   },
   featureCardPrimary: {
     backgroundColor: '#edf9f4',
-    borderRadius: 22,
-    padding: 18,
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#bfe7d5',
     marginBottom: 20,
@@ -2759,7 +2842,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionBlock: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   progressRow: {
     flexDirection: 'row',
@@ -2772,7 +2855,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#dfe8eb',
-    minHeight: 120,
+    minHeight: 108,
     justifyContent: 'center',
   },
   progressEmoji: {
@@ -3302,17 +3385,31 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#2f8d72',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    minHeight: 54,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
     alignItems: 'center',
-    marginTop: 18,
+    justifyContent: 'center',
+    marginTop: 14,
+    elevation: 2,
+    shadowColor: '#17483d',
+    shadowOpacity: 0.14,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
   },
   buttonDisabled: {
-    opacity: 0.7,
+    opacity: 0.55,
+  },
+  buttonPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });

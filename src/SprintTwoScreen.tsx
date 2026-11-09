@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -17,7 +18,8 @@ import {
   reconcileWellbeing,
   wellbeingPayload,
 } from './wellbeing';
-import { api, ApiError } from './api';
+import { api, ApiError, Mood } from './api';
+import { recommendActivity, summarizeMoodNotes } from './sentiment';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -82,10 +84,14 @@ export default function SprintTwoScreen({ userId, token, darkMode, onThemeChange
   const [reminderTime, setReminderTime] = useState('20:00');
   const [selectedArticle, setSelectedArticle] = useState<number | null>(null);
   const [notificationNotice, setNotificationNotice] = useState('');
+  const [recentMoods, setRecentMoods] = useState<Mood[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(true);
+  const [insightsUnavailable, setInsightsUnavailable] = useState(false);
+  const [insightsReload, setInsightsReload] = useState(0);
   const [tab, setTab] = useState<'rotina' | 'conteudos' | 'praticas' | 'metas' | 'conquistas'>('rotina');
   const theme = darkMode
-    ? { background: '#101827', surface: '#1f2937', text: '#f3f4f6', muted: '#cbd5e1', border: '#334155', accent: '#3fbf9f', soft: '#1f3b35' }
-    : { background: '#f3f5f7', surface: '#ffffff', text: '#1f2d2d', muted: '#5d6668', border: '#dfe8eb', accent: '#2d7a67', soft: '#eaf8f2' };
+    ? { background: '#111A18', surface: '#1C2925', text: '#F1F5F2', muted: '#B5C4BD', border: '#34473F', accent: '#75C7A8', soft: '#25443A' }
+    : { background: '#F5F7F4', surface: '#ffffff', text: '#24332F', muted: '#65746F', border: '#E0E8E2', accent: '#2F7563', soft: '#E2F0E9' };
 
   useEffect(() => {
     let active = true;
@@ -105,6 +111,23 @@ export default function SprintTwoScreen({ userId, token, darkMode, onThemeChange
     }).catch(() => Alert.alert('Erro', 'Não foi possível carregar suas preferências.'));
     return () => { active = false; };
   }, [userId, token]);
+
+  useEffect(() => {
+    let active = true;
+    setInsightsLoading(true);
+    setInsightsUnavailable(false);
+    api.history(token, 'week')
+      .then(result => {
+        if (active) setRecentMoods(result.registros);
+      })
+      .catch(() => {
+        if (active) setInsightsUnavailable(true);
+      })
+      .finally(() => {
+        if (active) setInsightsLoading(false);
+      });
+    return () => { active = false; };
+  }, [token, userId, insightsReload]);
 
   async function update(change: (current: WellbeingState) => WellbeingState) {
     if (!data) return;
@@ -202,7 +225,7 @@ export default function SprintTwoScreen({ userId, token, darkMode, onThemeChange
   }
 
   const actionButton = (label: string, onPress: () => void, secondary = false) => (
-    <Pressable accessibilityRole="button" onPress={onPress} style={[styles.button, { backgroundColor: secondary ? theme.soft : theme.accent, borderColor: theme.border }]}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.button, { backgroundColor: secondary ? theme.soft : theme.accent, borderColor: secondary ? theme.border : theme.accent }, pressed && styles.buttonPressed]}>
       <Text style={[styles.buttonText, { color: secondary ? theme.accent : '#ffffff' }]}>{label}</Text>
     </Pressable>
   );
@@ -216,6 +239,22 @@ export default function SprintTwoScreen({ userId, token, darkMode, onThemeChange
       {trailing}
     </View>
   );
+  const sentimentSummary = summarizeMoodNotes(recentMoods);
+  const recommendation = recommendActivity(recentMoods, sentimentSummary);
+  const recommendationContext = insightsUnavailable
+    ? 'As sugestões baseadas nos seus registros estão indisponíveis. Tente novamente quando a conexão voltar.'
+    : recentMoods.length
+      ? 'Sugestão organizada a partir dos registros de humor dos últimos 7 dias. É uma opção de autocuidado, não uma avaliação clínica.'
+      : 'Ainda não há registros recentes; esta é uma sugestão geral de autocuidado.';
+  const sentimentDescription = insightsUnavailable
+    ? 'Não foi possível carregar os registros recentes. Tente novamente quando a conexão voltar.'
+    : sentimentSummary.analyzed === 0
+      ? 'Ainda não há descrições recentes com palavras reconhecidas. Ao registrar seu humor, você pode acrescentar uma descrição para ver um resumo.'
+      : sentimentSummary.positive > sentimentSummary.negative
+        ? `Entre ${sentimentSummary.analyzed} descrições analisáveis, apareceram mais descrições com palavras associadas a sentimentos positivos (${sentimentSummary.positive}) do que a sentimentos difíceis (${sentimentSummary.negative}).`
+        : sentimentSummary.negative > sentimentSummary.positive
+          ? `Entre ${sentimentSummary.analyzed} descrições analisáveis, apareceram mais descrições com palavras associadas a sentimentos difíceis (${sentimentSummary.negative}) do que a sentimentos positivos (${sentimentSummary.positive}).`
+          : `Foram encontradas descrições variadas: ${sentimentSummary.positive} com palavras positivas, ${sentimentSummary.negative} com palavras de sentimentos difíceis e ${sentimentSummary.mixed} com sinais mistos.`;
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
@@ -228,6 +267,23 @@ export default function SprintTwoScreen({ userId, token, darkMode, onThemeChange
       </ScrollView>
 
       {tab === 'rotina' && <>
+        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text accessibilityRole="header" style={[styles.cardTitle, { color: theme.text }]}>Sugestão para você</Text>
+          {insightsLoading ? <ActivityIndicator accessibilityLabel="Analisando registros recentes" color={theme.accent} /> : insightsUnavailable ? <Text style={[styles.body, { color: theme.muted }]}>{recommendationContext}</Text> : <>
+            <Text style={[styles.cardTitle, { color: theme.accent }]}>{recommendation.title}</Text>
+            <Text style={[styles.body, { color: theme.muted }]}>{recommendation.explanation}</Text>
+            {actionButton(recommendation.activity === 'respiracao' ? 'Iniciar respiração guiada' : 'Ver práticas', () => {
+              if (recommendation.activity === 'respiracao') onBreathing();
+              else setTab('praticas');
+            })}
+          </>}
+          {insightsUnavailable ? actionButton('Tentar novamente', () => setInsightsReload(value => value + 1), true) : <Text style={[styles.body, { color: theme.muted, marginTop: 8 }]}>{recommendationContext}</Text>}
+        </View>
+        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text accessibilityRole="header" style={[styles.cardTitle, { color: theme.text }]}>Leitura das descrições recentes</Text>
+          {insightsLoading ? <ActivityIndicator accessibilityLabel="Analisando descrições" color={theme.accent} /> : <Text style={[styles.body, { color: theme.muted }]}>{sentimentDescription}</Text>}
+          <Text style={[styles.body, { color: theme.muted, marginTop: 8 }]}>O app procura um conjunto limitado de palavras nas descrições dos registros de humor dos últimos 7 dias. A leitura é feita no aparelho, pode não captar nuances e não é diagnóstico nem análise clínica.</Text>
+        </View>
         {card('Lembrete diário', 'Escolha um horário para receber um lembrete local neste aparelho.')}
         {notificationNotice ? <Text accessibilityRole="alert" style={[styles.body, { color: theme.muted, marginBottom: 12 }]}>{notificationNotice}</Text> : null}
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -285,6 +341,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 17, fontWeight: '700', marginBottom: 8 },
   body: { fontSize: 15, lineHeight: 22 },
   input: { borderWidth: 1, borderRadius: 10, padding: 12, marginTop: 10, marginBottom: 4, minHeight: 48 },
-  button: { minHeight: 48, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10, marginTop: 10 },
-  buttonText: { fontWeight: '700', fontSize: 15 },
+  button: { minHeight: 52, borderWidth: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 17, paddingVertical: 11, marginTop: 10, elevation: 1 },
+  buttonPressed: { opacity: 0.86, transform: [{ scale: 0.985 }] },
+  buttonText: { fontWeight: '700', fontSize: 15, letterSpacing: 0.15 },
 });

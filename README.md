@@ -1,6 +1,6 @@
 # Mente Clara
 
-Aplicativo móvel de acompanhamento de bem-estar desenvolvido com React Native, TypeScript e Expo SDK 57. O projeto inclui autenticação, perfil, registro e histórico de humor, diário, autoavaliação de bem-estar, exercício guiado de respiração, tema claro/escuro e recursos de ajuda.
+Aplicativo móvel de acompanhamento de bem-estar desenvolvido com React Native, TypeScript e Expo SDK 57. O projeto inclui autenticação, perfil, registro e histórico de humor, diário, autoavaliação, exercícios de bem-estar, tema claro/escuro, ajuda com acesso externo ao ChatGPT e amizades com QR code e leitura pela câmera.
 
 > O Mente Clara é uma ferramenta de apoio ao bem-estar. Ele não substitui atendimento médico, psicológico ou serviços de emergência.
 
@@ -8,6 +8,8 @@ Aplicativo móvel de acompanhamento de bem-estar desenvolvido com React Native, 
 
 - Expo SDK 57 e React Native 0.86;
 - TypeScript;
+- `expo-camera` para leitura de QR codes;
+- `toqr` para gerar o QR pessoal de amizade;
 - Node.js e Express;
 - PostgreSQL;
 - `expo-secure-store` para guardar a sessão no aparelho;
@@ -17,8 +19,9 @@ Aplicativo móvel de acompanhamento de bem-estar desenvolvido com React Native, 
 
 - [Node.js](https://nodejs.org/) 22.13 ou superior e [Git](https://git-scm.com/);
 - [Docker](https://www.docker.com/) e Docker Compose (para gerenciar o PostgreSQL de forma isolada na porta 5433, compatível com Linux e Windows);
-- Aplicativo [Expo Go](https://expo.dev/go) compatível com o SDK 57 instalado no celular (Android ou iOS);
-- *(Opcional)* Para depuração via USB no Android: `adb` (`sudo apt install adb` no Linux ou platform-tools no Windows).
+- Para Android: `adb` e Depuração USB ativada no aparelho. `npm run android -- --device` instala a build de desenvolvimento e permite escolher o aparelho;
+- Para compilar a build Android localmente, Android SDK e JDK compatíveis com o projeto;
+- *(Opcional)* [Expo Go](https://expo.dev/go) para testar recursos compatíveis. A build de desenvolvimento é recomendada para os fluxos com módulos nativos.
 
 Para executar pelo Wi-Fi, o celular e o computador precisam estar conectados na mesma rede local. Se solicitado, autorize o Node.js no firewall do seu sistema operacional.
 
@@ -43,11 +46,11 @@ Na primeira execução, inicialize o banco de dados e aplique as migrations:
 npm run db:setup
 ```
 
-Esse comando inicializa o container PostgreSQL via Docker (porta `5433`), cria o usuário e banco `mente_clara`, aplica todas as migrações SQL e gera o arquivo `backend/.env` com credenciais seguras. Os arquivos `.env`, `.local/` e `.local-logs/` são locais e não devem ser enviados ao Git.
+Esse comando inicializa o container PostgreSQL via Docker (porta padrão `5433`), cria o usuário e banco `mente_clara`, aplica todas as migrações SQL e gera o arquivo `backend/.env` com credenciais seguras. Se a porta estiver ocupada, ajuste a porta publicada na configuração local do Compose e confirme a porta efetiva com `npm run db:status`. Os arquivos `.env`, `.local/` e `.local-logs/` são locais e não devem ser enviados ao Git.
 
 O PostgreSQL fica acessível somente em `127.0.0.1:5433`. A senha administrativa é gerada localmente e fornecida ao Docker por um arquivo em `.local/`. Para instalações anteriores, execute `npm run db:setup` para aplicar a configuração e substituir a senha administrativa antiga, preservando os dados existentes. Use os comandos `db:start` e `db:setup` para preparar esse arquivo antes de iniciar o container.
 
-## Executar no Expo Go pelo Wi-Fi
+## Executar pelo Wi-Fi
 
 Abra três abas de terminal na pasta do projeto:
 
@@ -63,7 +66,7 @@ No segundo terminal, inicie a API para a rede local:
 npm run api:lan
 ```
 
-No terceiro terminal, inicie o servidor do Expo:
+No terceiro terminal, inicie o Metro:
 
 ```bash
 npm start
@@ -71,10 +74,9 @@ npm start
 
 Depois que o QR code aparecer no terminal:
 
-1. Abra o aplicativo **Expo Go** no celular.
-2. Leia o QR code mostrado no terminal.
-3. Aguarde a primeira compilação do bundle JavaScript.
-4. Se aparecer o menu azul de desenvolvimento, toque em **Continue** e feche-o pelo **X**.
+1. Abra a build de desenvolvimento Mente Clara no celular. Para instalar pela primeira vez, use `npm run android -- --device` e escolha o aparelho na lista.
+2. Aguarde a compilação do bundle JavaScript.
+3. Para Expo Go, abra o app e leia o QR code, desde que os módulos usados sejam compatíveis com a versão instalada.
 
 Mantenha os três terminais abertos enquanto utilizar o aplicativo.
 
@@ -113,26 +115,41 @@ No arquivo `.env` da raiz, defina:
 EXPO_PUBLIC_API_URL=http://127.0.0.1:3001
 ```
 
-Em um terminal, inicie a API localmente:
+Identifique o serial do aparelho na saída. Com mais de um celular conectado, use o serial do Galaxy ou do aparelho desejado. Instale a build de desenvolvimento uma vez, caso ainda não exista:
+
+```bash
+npm run android -- --device
+```
+
+Escolha o aparelho no menu do Expo. O comando compila e instala o app. Para encaminhar API e Metro por USB, abra um terminal para o banco:
+
+```bash
+npm run db:start
+```
+
+Em outro terminal, inicie a API e mantenha-a ativa:
 
 ```bash
 npm run api:start
 ```
 
-No segundo terminal, inicie a execução direta via USB:
+No terminal do projeto, substitua `SERIAL` pelo identificador mostrado por `adb devices -l`. Use uma porta livre para o Metro; abaixo, o exemplo usa `8084`:
 
 ```bash
-npm run android:usb
+adb -s SERIAL reverse tcp:3001 tcp:3001
+adb -s SERIAL reverse tcp:8084 tcp:8084
+EXPO_PUBLIC_API_URL=http://127.0.0.1:3001 ANDROID_SERIAL=SERIAL npx expo start --localhost --port 8084 --android
 ```
 
-O comando configurará os túneis `adb reverse` (para as portas 8081 e 3001) e abrirá o aplicativo automaticamente no Expo Go do seu celular.
+O Metro abre a build de desenvolvimento no aparelho escolhido. A porta `8081` pode já estar ocupada por outro projeto; nesse caso, use outra porta livre e encaminhe a mesma porta com `adb reverse`. Repita os comandos de encaminhamento para cada aparelho USB que for usar. O túnel precisa ser configurado novamente após desconectar o cabo ou reiniciar o celular.
 
 ## Comandos disponíveis
 
 | Comando | Finalidade |
 | --- | --- |
 | `npm start` | Inicia o Expo e exibe o QR code. |
-| `npm run android` | Abre o projeto no Android conectado ou emulador. |
+| `npm run android -- --device` | Compila/instala a build de desenvolvimento e permite escolher um aparelho Android. |
+| `npm run android:usb` | Atalho USB para iniciar o Metro em localhost quando a porta 8081 estiver livre. |
 | `npm run ios` | Abre o projeto no simulador iOS, no macOS. |
 | `npm run api:lan` | Inicia a API acessível pela rede local. |
 | `npm run api:start` | Inicia a API somente no computador. |
@@ -203,11 +220,11 @@ Os projetos nativos anteriores estão em `legacy-native/` apenas como referênci
 
 O backlog consolidado está em [docs/Backlog_MC_Sprints.xlsx](docs/Backlog_MC_Sprints.xlsx). A planilha contém:
 
-- 24 histórias de usuário e seus critérios de aceite;
+- 28 histórias de usuário e seus critérios de aceite;
 - resumo do MVP, versões seguintes e itens futuros;
 - distribuição por Sprint 1, Sprint 2 e Sprint 3;
 - prioridade MoSCoW, complexidade e dependências;
-- IA, comunidade e integrações avançadas fora do escopo atual.
+- análise por IA, comunidade moderada e integrações avançadas ainda fora do escopo atual. A lista básica de amizades e o acesso externo ao ChatGPT foram registrados na Sprint 3.
 
 As próximas entregas estão resumidas abaixo, seguindo os IDs, as prioridades e as dependências da planilha. As sprints representam a sequência planejada; datas e responsáveis ainda não estão definidos. Uma história só deve ser considerada concluída após a verificação dos seus critérios de aceite.
 
@@ -215,8 +232,8 @@ As próximas entregas estão resumidas abaixo, seguindo os IDs, as prioridades e
 | --- | --- | --- |
 | Fechamento da Sprint 1 | Validar em dispositivo os fluxos essenciais, incluindo a autoavaliação implementada. | US-001 a US-005, US-007 a US-009 |
 | Sprint 2 | Ampliar a rotina de autocuidado, a acessibilidade e a personalização. | US-006, US-010 a US-016 |
-| Sprint 3 | Permitir maior controle dos dados e aprofundar o acompanhamento. | US-017 a US-021 |
-| Backlog futuro | Avaliar IA, comunidade e integrações após definir os requisitos específicos. | US-022 a US-024 |
+| Sprint 3 | Ampliar o controle dos dados e o acompanhamento, além de registrar as novas entregas de interface, amizade, ajuda externa e execução Android. | US-017 a US-021, US-025 a US-028 |
+| Backlog futuro | Avaliar análise por IA, comunidade moderada e integrações após definir requisitos, segurança e fontes de dados. | US-022 a US-024 |
 
 ## Backlog da Sprint 1
 
@@ -308,7 +325,14 @@ Objetivo: ampliar o acesso aos dados e os recursos de acompanhamento, respeitand
 - **Reflexão estruturada:** o exercício guiado apresenta etapas para situação, pensamento, emoção, evidências e próximo passo; a resposta é salva no diário.
 - **Relatórios:** a tela de Progresso apresenta contagens e intensidade média calculadas a partir dos registros reais; o histórico exibe o gráfico semanal e mensal. O app não interpreta a intensidade como humor positivo/negativo nem faz diagnóstico.
 
-O catálogo de profissionais está preparado com estado vazio e explica que o projeto não recebeu uma fonte verificável. Não há catálogo, agendamento ou atendimento. A tela de sugestões de apoio usa conteúdo fixo, sem modelo de IA; análise de sentimentos não está ativa. Comunidade, denúncia/moderação e integrações externas permanecem pendentes por falta de fonte de dados, regras de moderação e APIs/requisitos definidos.
+O catálogo de profissionais está preparado com estado vazio e explica que o projeto não recebeu uma fonte verificável. Não há catálogo, agendamento ou atendimento. A tela de sugestões de apoio usa conteúdo fixo, sem modelo de IA; o botão ChatGPT apenas abre o site externo no navegador e não envia dados do app. Análise de sentimentos não está ativa. A lista básica de amizades e o QR estão implementados; espaços comunitários, denúncias/moderação e integrações com serviços continuam pendentes de requisitos e fontes definidos.
+
+### Tarefas recentes adicionadas à Sprint 3
+
+- **US-025 — ChatGPT externo na emergência:** botão abre `chatgpt.com` no navegador, com aviso de que IA não substitui atendimento profissional ou serviços de emergência. O CVV 188 permanece disponível.
+- **US-026 — Refinamento visual:** atualização da paleta, dos cartões de humor, dos botões, da hierarquia da tela inicial e da navegação. Leitor de tela, contraste e escala ampliada ainda precisam de validação abrangente.
+- **US-027 — Amizades e QR:** código pessoal e QR, leitura com câmera ou inserção manual, lista sincronizada e remoção de amizades. Validar o fluxo com duas contas.
+- **US-028 — Execução Android por USB:** build instalada e aberta no Galaxy A14 com encaminhamento das portas para API e Metro. O README documenta a seleção do aparelho e os comandos de encaminhamento.
 
 Antes da entrega final, valide notificações e compartilhamento/restauração de arquivos em dispositivo físico. Os testes automatizados e as checagens de build/typecheck são registrados abaixo apenas após sua execução neste ambiente.
 

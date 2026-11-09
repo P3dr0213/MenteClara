@@ -31,15 +31,15 @@ export default function SprintThreeScreen({ userId, token, darkMode, onSaveRefle
   const [report, setReport] = useState<Report | null>(null);
   const [busy, setBusy] = useState(false);
   const theme = darkMode
-    ? { background: '#101827', surface: '#1f2937', text: '#f3f4f6', muted: '#cbd5e1', border: '#334155', accent: '#3fbf9f', soft: '#1f3b35' }
-    : { background: '#f3f5f7', surface: '#ffffff', text: '#1f2d2d', muted: '#5d6668', border: '#dfe8eb', accent: '#2d7a67', soft: '#eaf8f2' };
+    ? { background: '#111A18', surface: '#1C2925', text: '#F1F5F2', muted: '#B5C4BD', border: '#34473F', accent: '#75C7A8', soft: '#25443A' }
+    : { background: '#F5F7F4', surface: '#ffffff', text: '#24332F', muted: '#65746F', border: '#E0E8E2', accent: '#2F7563', soft: '#E2F0E9' };
 
   useEffect(() => {
     getPending(userId).then(records => setPendingCount(records.length)).catch(() => setPendingCount(0));
   }, [userId]);
 
   const card = (title: string, body: string) => <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text accessibilityRole="header" style={[styles.cardTitle, { color: theme.text }]}>{title}</Text><Text style={[styles.body, { color: theme.muted }]}>{body}</Text></View>;
-  const button = (title: string, onPress: () => void, secondary = false) => <Pressable accessibilityRole="button" disabled={busy} onPress={onPress} style={[styles.button, { backgroundColor: secondary ? theme.soft : theme.accent, borderColor: theme.border }]}><Text style={[styles.buttonText, { color: secondary ? theme.accent : '#fff' }]}>{title}</Text></Pressable>;
+  const button = (title: string, onPress: () => void, secondary = false) => <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onPress} style={({ pressed }) => [styles.button, { backgroundColor: secondary ? theme.soft : theme.accent, borderColor: secondary ? theme.border : theme.accent }, busy && styles.buttonDisabled, pressed && !busy && styles.buttonPressed]}><Text style={[styles.buttonText, { color: secondary ? theme.accent : '#fff' }]}>{title}</Text></Pressable>;
   const input = (label: string, value: string, setValue: (next: string) => void, multiline = false) => <TextInput accessibilityLabel={label} value={value} onChangeText={setValue} placeholder={label} placeholderTextColor={theme.muted} multiline={multiline} textAlignVertical={multiline ? 'top' : 'center'} style={[styles.input, multiline && styles.multiline, { color: theme.text, borderColor: theme.border }]} />;
 
   async function synchronize() {
@@ -177,6 +177,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 }, content: { padding: 20, paddingBottom: 36 },
   title: { fontSize: 27, fontWeight: '800', marginBottom: 14 }, sectionTitle: { fontSize: 21, fontWeight: '800', marginTop: 18, marginBottom: 10 },
   card: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 12 }, cardTitle: { fontSize: 17, fontWeight: '700', marginBottom: 7 }, body: { fontSize: 15, lineHeight: 22 },
-  button: { minHeight: 48, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', padding: 12, marginBottom: 12 }, buttonText: { fontSize: 15, fontWeight: '700' },
+  button: { minHeight: 52, borderWidth: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 17, paddingVertical: 12, marginBottom: 12, elevation: 1 },
+  buttonDisabled: { opacity: 0.55 }, buttonPressed: { opacity: 0.86, transform: [{ scale: 0.985 }] }, buttonText: { fontSize: 15, fontWeight: '700', letterSpacing: 0.15 },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 12 }, multiline: { minHeight: 90 },
 });

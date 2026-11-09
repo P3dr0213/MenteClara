@@ -33,22 +33,26 @@ export default function HistoryScreen({
   const [reload, setReload] = useState(0);
   const theme = darkMode
     ? {
-        background: '#101827',
-        surface: '#1f2937',
-        text: '#f3f4f6',
-        textMuted: '#cbd5e1',
-        border: '#334155',
-        accent: '#3fbf9f',
-        accentSoft: '#1f3b35',
+        background: '#111A18',
+        surface: '#1C2925',
+        text: '#F1F5F2',
+        textMuted: '#B5C4BD',
+        border: '#34473F',
+        accent: '#75C7A8',
+        accentSoft: '#25443A',
+        danger: '#F0A6A0',
+        dangerSoft: '#382825',
       }
     : {
-        background: '#f3f5f7',
+        background: '#F5F7F4',
         surface: '#ffffff',
-        text: '#1f2d2d',
-        textMuted: '#5d6668',
-        border: '#dfe8eb',
-        accent: '#2f8d72',
-        accentSoft: '#dff4ed',
+        text: '#24332F',
+        textMuted: '#65746F',
+        border: '#E0E8E2',
+        accent: '#2F7563',
+        accentSoft: '#E2F0E9',
+        danger: '#B65A51',
+        dangerSoft: '#F8ECEA',
       };
 
   useEffect(() => {
@@ -227,11 +231,11 @@ export default function HistoryScreen({
                   </Text>
                 ) : null}
                 <View style={styles.actions}>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Editar registro ${entry.tipo}`} onPress={() => onEdit(entry)} style={[styles.actionButton, { backgroundColor: theme.accentSoft }]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Editar registro ${entry.tipo}`} onPress={() => onEdit(entry)} style={({ pressed }) => [styles.actionButton, { backgroundColor: theme.accentSoft }, pressed && styles.actionButtonPressed]}>
                     <Text style={{ color: theme.accent, fontWeight: '700' }}>Editar</Text>
                   </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Excluir registro ${entry.tipo}`} onPress={() => confirmDelete(entry)} style={[styles.actionButton, { backgroundColor: theme.accentSoft }]}>
-                    <Text style={{ color: theme.accent, fontWeight: '700' }}>Excluir</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Excluir registro ${entry.tipo}`} onPress={() => confirmDelete(entry)} style={({ pressed }) => [styles.actionButton, { backgroundColor: theme.dangerSoft }, pressed && styles.actionButtonPressed]}>
+                    <Text style={{ color: theme.danger, fontWeight: '700' }}>Excluir</Text>
                   </Pressable>
                 </View>
               </View>
@@ -304,5 +308,6 @@ const styles = StyleSheet.create({
   mood: { fontWeight: '700', fontSize: 16, color: '#1f2d2d', marginBottom: 6 },
   description: { marginTop: 8, color: '#3e4d4d' },
   actions: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  actionButton: { minHeight: 44, flex: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  actionButton: { minHeight: 46, flex: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: 'transparent' },
+  actionButtonPressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
 });

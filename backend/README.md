@@ -1,9 +1,8 @@
 # API Mente Clara
 
-Na raiz do projeto, execute npm install e npm run db:setup. O setup aplica migrations novas sem repetir as anteriores.
-Para Expo Go no Wi-Fi, execute `npm run api:lan` e, em outro terminal, `npm start`. O celular e o computador devem estar na mesma rede. O app descobre o IP do computador pelo Metro.
+Na raiz do projeto, execute `npm install`, `npm run db:setup` e `npm run db:start`. O setup aplica migrations novas sem reaplicar as anteriores.
 
-Para USB, configure `EXPO_PUBLIC_API_URL=http://127.0.0.1:3001` no `.env` da raiz, execute `npm run api:start` e `npm run android:usb`. A API escuta somente em localhost com api:start; api:lan libera acesso pela rede local.
+Para testar em uma rede Wi-Fi, inicie a API com `npm run api:lan` e o Metro com `npm start`; celular e computador devem estar na mesma rede local. Para USB, inicie a API com `npm run api:start`, encaminhe a porta 3001 com `adb -s SERIAL reverse tcp:3001 tcp:3001` e inicie o Metro em localhost. O app usa `EXPO_PUBLIC_API_URL=http://127.0.0.1:3001`. Com mais de um Android conectado, informe o serial desejado nos comandos ADB e Expo.
 
 ## Fluxos
 
@@ -11,6 +10,10 @@ Para USB, configure `EXPO_PUBLIC_API_URL=http://127.0.0.1:3001` no `.env` da rai
 - POST /api/auth/login: email, password; retorna user e token.
 - GET /api/auth/me e GET /api/user/profile: usuario autenticado.
 - PUT /api/user/profile: name e email; atualiza somente o usuario autenticado.
+- GET /api/friends/code: retorna o código aleatório de amizade da conta autenticada.
+- GET /api/friends: lista amizades da conta autenticada, sem expor e-mail ou dados emocionais.
+- POST /api/friends: recebe `code` e cria a conexão mútua com a pessoa correspondente.
+- DELETE /api/friends/:id: remove a conexão dos dois lados.
 - POST /api/auth/logout: invalida a sessao atual no banco.
 - POST /api/mood/register: tipo, intensidade (1 a 5), descricao opcional (ate 280 caracteres).
 - GET /api/mood/:id: consulta somente registro pertencente ao usuario.
@@ -35,7 +38,7 @@ O grafico mostra a intensidade media diaria na data local do celular, nao uma po
 
 ## Banco e dados
 
-A migration 002_humor_sessoes cria o relacionamento entre humor e usuarios e a tabela de sessoes. A migration 007_bem_estar_sync adiciona chaves de origem para importação idempotente e estado JSON de bem-estar por usuário. O setup aplica todas as migrations pendentes em ordem.
+A migration 002_humor_sessoes cria o relacionamento entre humor e usuarios e a tabela de sessoes. A migration 007_bem_estar_sync adiciona estado de bem-estar por usuário e identificadores de origem para restauração idempotente. A migration 008_amizades cria códigos pessoais e conexões de amizade. O setup aplica todas as migrations pendentes em ordem.
 Se existirem registros antigos sem dono, a migration interrompe sem apagar dados; eles precisam de uma associacao explicita antes de continuar.
 As credenciais ficam em backend/.env (ignorado pelo Git). Nao use os arquivos de .local em um repositorio publico.
 Dados existentes de usuarios sao preservados.
@@ -48,6 +51,6 @@ Dados existentes de usuarios sao preservados.
 - npm run lint
 - npm run android:usb
 
-O SecureStore ja esta disponivel no Expo Go. Para gerar aplicativos nativos independentes, use o fluxo de prebuild/build do Expo.
+O app usa `expo-secure-store` para a sessão e `expo-camera` para leitura de QR. Use uma build de desenvolvimento instalada no aparelho para validar os módulos nativos. O botão ChatGPT da tela de emergência abre um site externo; não envia os dados do app para o ChatGPT.
 
 Esta configuracao e para desenvolvimento local. Para publicar a API, configure HTTPS e os segredos do ambiente de hospedagem.

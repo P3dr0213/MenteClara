@@ -227,6 +227,88 @@ function createApp({ pool, jwtSecret }) {
     }),
   );
   app.get(
+    '/api/friends/code',
+    auth,
+    wrap(async (req, res) => {
+      const result = await pool.query(
+        'SELECT codigo_amizade::text AS code FROM public.usuarios WHERE id=$1',
+        [req.auth.userId],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Usuário não encontrado.' });
+      res.json({ code: result.rows[0].code });
+    }),
+  );
+  app.get(
+    '/api/friends',
+    auth,
+    wrap(async (req, res) => {
+      const result = await pool.query(
+        `SELECT u.id, u.nome, a.criado_em
+         FROM public.amizades a
+         JOIN public.usuarios u ON u.id=a.amigo_id
+         WHERE a.usuario_id=$1
+         ORDER BY lower(u.nome), u.id`,
+        [req.auth.userId],
+      );
+      res.json({ friends: result.rows });
+    }),
+  );
+  app.post(
+    '/api/friends',
+    auth,
+    wrap(async (req, res) => {
+      const code = typeof req.body?.code === 'string' ? req.body.code.trim().toLowerCase() : '';
+      if (!validUuid(code)) return res.status(400).json({ message: 'Código de amizade inválido.' });
+      const target = await pool.query(
+        'SELECT id, nome FROM public.usuarios WHERE codigo_amizade=$1',
+        [code],
+      );
+      if (!target.rowCount || target.rows[0].id === req.auth.userId) {
+        return res.status(404).json({ message: 'Não encontramos outra pessoa com esse código.' });
+      }
+      const db = await pool.connect();
+      try {
+        await db.query('BEGIN');
+        await db.query(
+          `INSERT INTO public.amizades (usuario_id, amigo_id)
+           VALUES ($1,$2),($2,$1) ON CONFLICT DO NOTHING`,
+          [req.auth.userId, target.rows[0].id],
+        );
+        await db.query('COMMIT');
+      } catch (error) {
+        await db.query('ROLLBACK');
+        throw error;
+      } finally {
+        db.release();
+      }
+      res.status(201).json({ friend: target.rows[0], message: 'Amizade adicionada.' });
+    }),
+  );
+  app.delete(
+    '/api/friends/:id',
+    auth,
+    wrap(async (req, res) => {
+      if (!validUuid(req.params.id) || req.params.id === req.auth.userId) {
+        return res.status(400).json({ message: 'Amizade inválida.' });
+      }
+      const db = await pool.connect();
+      try {
+        await db.query('BEGIN');
+        await db.query(
+          'DELETE FROM public.amizades WHERE (usuario_id=$1 AND amigo_id=$2) OR (usuario_id=$2 AND amigo_id=$1)',
+          [req.auth.userId, req.params.id],
+        );
+        await db.query('COMMIT');
+      } catch (error) {
+        await db.query('ROLLBACK');
+        throw error;
+      } finally {
+        db.release();
+      }
+      res.status(204).end();
+    }),
+  );
+  app.get(
     '/api/user/wellbeing',
     auth,
     wrap(async (req, res) => {

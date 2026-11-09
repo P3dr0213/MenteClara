@@ -26,31 +26,31 @@ export default function AssessmentScreen({ darkMode, onBack, onHelp }: Props) {
   const [error, setError] = useState('');
   const colors = darkMode
     ? {
-        background: '#101827',
-        surface: '#1f2937',
-        text: '#f3f4f6',
-        muted: '#cbd5e1',
-        accent: '#3fbf9f',
-        selected: '#1f3b35',
-        border: '#64748b',
-        error: '#fca5a5',
+        background: '#111A18',
+        surface: '#1C2925',
+        text: '#F1F5F2',
+        muted: '#B5C4BD',
+        accent: '#75C7A8',
+        selected: '#25443A',
+        border: '#52685D',
+        error: '#F0A6A0',
       }
     : {
-        background: '#f3f5f7',
+        background: '#F5F7F4',
         surface: '#ffffff',
-        text: '#1f2d2d',
-        muted: '#5d6668',
-        accent: '#2d7a67',
-        selected: '#eaf8f2',
-        border: '#82918d',
-        error: '#b3261e',
+        text: '#24332F',
+        muted: '#65746F',
+        accent: '#2F7563',
+        selected: '#E2F0E9',
+        border: '#A6B5AC',
+        error: '#B65A51',
       };
   const answered = answers.filter(answer => answer !== null).length;
   const action = (label: string, onPress: () => void) => (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={[styles.action, { borderColor: colors.accent }]}
+      style={({ pressed }) => [styles.action, { borderColor: colors.accent, backgroundColor: colors.surface }, pressed && styles.actionPressed]}
     >
       <Text style={[styles.actionText, { color: colors.accent }]}>{label}</Text>
     </Pressable>
@@ -219,12 +219,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   action: {
-    minHeight: 48,
-    padding: 12,
-    borderRadius: 12,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 15,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    marginVertical: 5,
+    elevation: 1,
   },
-  actionText: { fontSize: 16, fontWeight: '600' },
+  actionPressed: { opacity: 0.86, transform: [{ scale: 0.985 }] },
+  actionText: { fontSize: 15, fontWeight: '700', letterSpacing: 0.15 },
 });

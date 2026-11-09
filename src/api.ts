@@ -16,6 +16,7 @@ export type DiaryEntry = {
   resposta: string;
   criado_em: string;
 };
+export type Friend = { id: string; nome: string; criado_em: string };
 export type Period = 'week' | 'month';
 export type DataBackup = {
   format: 'mente-clara-backup-v1';
@@ -103,6 +104,14 @@ export const api = {
       token,
       body,
     ),
+  getFriendCode: (token: string) =>
+    request<{ code: string }>('/api/friends/code', 'GET', token),
+  getFriends: (token: string) =>
+    request<{ friends: Friend[] }>('/api/friends', 'GET', token),
+  addFriend: (token: string, code: string) =>
+    request<{ friend: Pick<Friend, 'id' | 'nome'>; message: string }>('/api/friends', 'POST', token, { code }),
+  removeFriend: (token: string, id: string) =>
+    request<void>('/api/friends/' + id, 'DELETE', token),
   logout: (token: string) => request<void>('/api/auth/logout', 'POST', token),
   saveMood: (
     token: string,
